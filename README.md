@@ -13,21 +13,21 @@ In trying to keep this template as generic and reusable as possible, there are s
 
 - [x] ✅ Select an appropriate license for your project. This can easily be achieved through the 'Add File' button on the GitHub UI, naming the file `LICENSE`, and selecting your desired license from the provided list.
 - [x] Update the `<License name>` placeholder in this file to reflect the name of the license you selected above.
-- [ ] Replace `[INSERT CONTACT METHOD]` in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) with a suitable communication channel.
-- [ ] Change references to `org_name` to the name of the org your repo belongs to (eg. `wayfair-incubator`):
-  - [ ] In [`README.md`](README.md)
-  - [ ] In [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [ ] Change references to `repo_name` to the name of your new repo:
-  - [ ] In [`README.md`](README.md)
-  - [ ] In [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- [ ] Update the link to the contribution guidelines to point to your project:
-  - [ ] In [`.github/ISSUE_TEMPLATE/BUG_REPORT.md`](.github/ISSUE_TEMPLATE/BUG_REPORT.md)
-  - [ ] In [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)
-- [ ] Replace the `<project name>` placeholder with the name of your project:
-  - [ ] In [`CONTRIBUTING.md`](CONTRIBUTING.md)
-  - [ ] In [`SECURITY.md`](SECURITY.md)
-- [ ] Add names and contact information for actual project maintainers to [`MAINTAINERS.md`](MAINTAINERS.md).
-- [ ] Delete the content of [`CHANGELOG.md`](CHANGELOG.md). We encourage you to [keep a changelog](https://keepachangelog.com/en/1.0.0/).
+- [x] Replace `[INSERT CONTACT METHOD]` in [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) with a suitable communication channel.
+- [x] Change references to `org_name` to the name of the org your repo belongs to (eg. `wayfair-incubator`):
+  - [x] In [`README.md`](README.md)
+  - [x] In [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [x] Change references to `repo_name` to the name of your new repo:
+  - [x] In [`README.md`](README.md)
+  - [x] In [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [x] Update the link to the contribution guidelines to point to your project:
+  - [x] In [`.github/ISSUE_TEMPLATE/BUG_REPORT.md`](.github/ISSUE_TEMPLATE/BUG_REPORT.md)
+  - [x] In [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md)
+- [x] Replace the `<project name>` placeholder with the name of your project:
+  - [x] In [`CONTRIBUTING.md`](CONTRIBUTING.md)
+  - [x] In [`SECURITY.md`](SECURITY.md)
+- [x] Add names and contact information for actual project maintainers to [`MAINTAINERS.md`](MAINTAINERS.md).
+- [x] Delete the content of [`CHANGELOG.md`](CHANGELOG.md). We encourage you to [keep a changelog](https://keepachangelog.com/en/1.0.0/).
 - [ ] Configure [`renovate.json`](renovate.json) for your project's language and tooling dependencies.
   - [ ] Note that the base `renovate.json` file included with this template inherits most of its configuration logic from Wayfair OSPO's recommended presets, hosted [here](https://github.com/wayfair/ospo-automation/blob/main/default.json). If your project does not require advanced dependency configuration, this may be sufficient for your needs.
   - [ ] 💡 To learn more about using and configuring [Renovate](http://renovatebot.com/), check out our [wayfair.github.io](https://wayfair.github.io) article: **[Managing Project Dependencies](https://wayfair.github.io/docs/managing-dependencies/)**.
@@ -58,7 +58,7 @@ This is an example of how to list things you need to use the software and how to
 1. Clone the repo
 
    ```sh
-   git clone https://github.com/org_name/repo_name.git
+   git clone https://github.com/wayfair-incubator/telefonistka.git
    ```
 
 2. Install NPM packages
@@ -71,11 +71,11 @@ This is an example of how to list things you need to use the software and how to
 
 Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
 
-_For more examples, please refer to the [Documentation](https://example.com) or the [Wiki](https://github.com/org_name/repo_name/wiki)_
+_For more examples, please refer to the [Documentation](https://example.com) or the [Wiki](https://github.com/wayfair-incubator/telefonistka/wiki)_
 
 ## Roadmap
 
-See the [open issues](https://github.com/org_name/repo_name/issues) for a list of proposed features (and known issues).
+See the [open issues](https://github.com/wayfair-incubator/telefonistka/issues) for a list of proposed features (and known issues).
 
 ## Contributing
 
@@ -89,7 +89,7 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 
 Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email
 
-Project Link: [https://github.com/org_name/repo_name](https://github.com/org_name/repo_name)
+Project Link: [https://github.com/wayfair-incubator/telefonistka](https://github.com/wayfair-incubator/telefonistka)
 
 ## Acknowledgements
 
