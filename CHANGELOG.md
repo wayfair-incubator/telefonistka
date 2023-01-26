@@ -9,10 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### TBA
 
-
 ## [0.0.1] - 2023-01-26
 
 ### Added
-- Initial code commit
 
+- Initial code commit
 
