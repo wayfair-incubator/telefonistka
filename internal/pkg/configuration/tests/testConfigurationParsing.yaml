@@ -1,0 +1,25 @@
+promotionPaths:
+  - sourcePath: "workspace/"
+    conditions:
+      prHasLabels:
+        - "some-label"
+    targetPaths:
+      -
+        - "env/sdeprod/iad1/c1/"
+        - "env/sdeprod/grq1/c1/"
+  - sourcePath: "env/sdeprod/iad1/c1/"
+    targetPaths:
+      -
+        - "env/prod/dsm1/c2/"
+  - sourcePath: "env/prod/dsm1/c2/"
+    targetPaths:
+      -
+        - "env/prod/pdx1/c2/"
+        - "env/prod/dsm1/c3/"
+
+promtionPrLables:
+  - "promotion"
+promotionBranchNameTemplte: "promotions/{{.safeBranchName}}"
+promtionPrBodyTemplate: |
+  This is a promotion of {{ .originalPrNumber }}
+  Bla Bla
