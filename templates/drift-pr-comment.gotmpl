@@ -1,0 +1,36 @@
+{{define "driftMsg"}}
+# ⚠️  Found drift between environments ⚠️ (Promoter Bot)
+
+## Intro
+Drift detection runs on the files in the main branch irrespective of the changes of the PR.
+
+This could happen in two scenarios:
+1. Someone made changes to workspace/  and didn't finish the promotion,
+this means that your automated promotion PR will include these changes in addition to your changes!
+The "Blame Links" at the bottom of this comment can be a good place to start looking for the culprit.
+
+
+2. Someone made a change directly to one of the clusters/{dev,prod,sdedev,sdeprod} paths
+these change will be **overridden** by the automated promtion PRs unless changes are made to their respective branches.
+
+
+## Diffs
+
+
+{{- range $title, $diffOutput := . }}
+
+### {{ $title }}
+
+<details><summary>Diff (Click to expand)</summary>
+
+{{ $diffOutput }}
+
+</details>
+
+{{- end }}
+
+
+## Blame Links:
+TBD
+
+{{- end }}

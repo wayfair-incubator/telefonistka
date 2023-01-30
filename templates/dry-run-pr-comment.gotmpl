@@ -1,0 +1,25 @@
+{{define "dryRunMsg"}}
+## GitOps Promoter Dry Run Message:
+
+This is the plan for opening promotion PRs:
+
+
+{{ range $key, $value := . }}
+
+
+```
+PR :{{ $value.Metadata.SourcePath }} 
+{{- range  $trgt, $src  := $value.ComputedSyncPaths }}
+ ✅ {{ $src }} ➡️  {{ $trgt }}
+{{- end }}
+{{- if $value.Metadata.PerComponentSkippedTargetPaths}}
+Skipped target paths:
+{{- range $k, $v := $value.Metadata.PerComponentSkippedTargetPaths}}
+ 🚫 {{ $value.Metadata.SourcePath }}/{{$k}} ➡️  {{$v}}
+{{- end}}
+{{- end}}
+```
+
+{{- end }}
+{{ end }}
+
