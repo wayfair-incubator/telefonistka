@@ -9,7 +9,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/migueleliasweb/go-github-mock v0.0.13
 	github.com/prometheus/client_golang v1.14.0
-	github.com/shurcooL/githubv4 v0.0.0-20221203213311-70889c5dac07
+	github.com/shurcooL/githubv4 v0.0.0-20221229060216-a8d4a561cc93
 	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/oauth2 v0.2.0
 	gopkg.in/yaml.v2 v2.4.0
