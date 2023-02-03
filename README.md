@@ -3,7 +3,6 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![Maintainer](https://img.shields.io/badge/Maintainer-Wayfair-7F187F)](https://wayfair.github.io)
 
-
 ## About The Project
 
 Promoter is a Github Webhook Bot that facilitate promotions in a Iac GitOps repo that models environments and sites as folders.
@@ -12,20 +11,25 @@ Based on configuration in the IaC repo, the bot will open Pull Requests that syn
 
 Providing reasnably flexible control over what is promoted to where and in what order.
 
-### Notable Features ###
+### Notable Features
 
 * IaC technology agnostic -  Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied "as is".
 
 * Multi stage promotion schemes like  
-  ```
+
+  ```text
   lab -> staging -> production
   ```
+
   or  
-  ```
+
+  ```text
   dev -> production-us-east-1 -> production-us-east-3 -> production-eu-east-1
   ```  
+  
   Fan out, like:  
-  ```
+
+  ```text
   lab -> staging1 -->
          staging2 -->  prodction
          staging3 -->
@@ -35,8 +39,8 @@ Providing reasnably flexible control over what is promoted to where and in what 
 * Optional in-component allow/block override list("this component should not be deployed to production" or "deploy this only in the us-east-4 region")
 * Drift detection - warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
 
-### Server Configuration ###
--------------
+### Server Configuration
+
 Environment variables for the webhook process:
 
 `APPROVER_GITHUB_OAUTH_TOKEN` GitHub oAuth token for automatically approving promotion PRs
@@ -49,20 +53,25 @@ Environment variables for the webhook process:
 
 Behavior of the bot is configured by YAML files **in the target repo**:
 
-### Repo Configuration ###
+### Repo Configuration
+
 Pulled from `telefonistka.yaml` file in the repo root directory(default branch)
 
 Configuration keys:  
-- `promotionPaths` Array of maps, each map describes a promotion flow:  
-- - `   sourcePath`: directory that holds components(subdirectories) to be synced, can include a regex.  
-- - `   conditions`: conditions for triggering a specific promotion flows(flows are evauated in order, first one to match is triggered.  
-- - - `   prHasLabels`: Array of PR labels, if the triggering PR has any of these lables the condition is considered fulfilled. Currently its the only supported condition type.  
-- - `   targetPaths`: Array of arrays(!!!) of target paths tied to the source path mentioned above, each top level element represent a PR that will be opened, so multiple target can be synced in a single PR.  
-- `dryRunMode`: if true, the bot will just comment the planned promotion on the merged PR.  
-- `autoApprovePromotionPrs`: if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable.  
-- `toggleCommitStatus`: Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden.
+
+|key|desc|
+|---|---|
+|`promotionPaths`| Array of maps, each map describes a promotion flow|  
+|`promotionPaths[0].sourcePath`| directory that holds components(subdirectories) to be synced, can include a regex.|
+|`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows(flows are evauated in order, first one to match is triggered.)|
+|`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these lables the condition is considered fulfilled. Currently its the only supported condition type|
+|`promotionPaths[0].targetPaths`|  Array of arrays(!!!) of target paths tied to the source path mentioned above, each top level element represent a PR that will be opened, so multiple target can be synced in a single PR|  
+|`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
+|`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
+|`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
 
 Example:
+
 ```yaml
 promotionPaths:
   - sourcePath: "workspace/"
@@ -103,7 +112,7 @@ toggleCommitStatus:
   override-terrafrom-pipeline: "github-action-terraform"
 ```
 
-### Component Configuration ###
+### Component Configuration
 
 This optional in-component configuation file allows overriding the general promotion configuation for a specific component.  
 File location is `COPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:  
@@ -124,7 +133,7 @@ promotionTargetAllowList:
   - env/sde.*
 ```
 
-### Metrics ###
+### Metrics
 
 ```text
 # HELP telefonistka_github_github_operations_total The total number of Github operations
@@ -145,13 +154,13 @@ telefonistka_github_github_rest_api_client_rate_remaining 99668
 telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 ```
 
-### Development ###
+### Development
 
-- use Ngrok ( `ngrok http 8080` ) to expose the local instance
-- See the URLs in ngrok command output.
-- Add a webhook to repo setting e.g. `https://github.csnzoo.com/ob136j/k8s-gitops-poc/settings/hooks`
+* use Ngrok ( `ngrok http 8080` ) to expose the local instance
+* See the URLs in ngrok command output.
+* Add a webhook to repo setting e.g. `https://github.csnzoo.com/ob136j/k8s-gitops-poc/settings/hooks`
 (don't forget the `/webhook` path in the URL).
-- Content type needs to be `application/json`, **currently** only PR events are needed
+* Content type needs to be `application/json`, **currently** only PR events are needed
 
 ### Installation
 
