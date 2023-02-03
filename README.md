@@ -1,11 +1,6 @@
-# Open Source Project Template
-
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CODE_OF_CONDUCT.md)
-[![Maintainer](https://img.shields.io/badge/Maintainer-Wayfair-7F187F)](https://wayfair.github.io)
-
 ## About The Project
 
-Promoter is a Github Webhook Bot that facilitate promotions in a Iac GitOps repo that models environments and sites as folders.
+Telefonistka is a Github Webhook Bot that facilitate promotions in a Iac GitOps repo that models environments and sites as folders.
 
 Based on configuration in the IaC repo, the bot will open Pull Requests that syncs components from "sourcePath"s to "targetPaths".
 
