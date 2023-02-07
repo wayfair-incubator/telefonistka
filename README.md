@@ -1,10 +1,10 @@
 ## About The Project
 
-Telefonistka is a Github Webhook Bot that facilitate promotions in a Iac GitOps repo that models environments and sites as folders.
+Telefonistka is a Github Webhook Bot that facilitate promotions in a IaC GitOps repo that models environments and sites as folders.
 
 Based on configuration in the IaC repo, the bot will open Pull Requests that syncs components from "sourcePath"s to "targetPaths".
 
-Providing reasnably flexible control over what is promoted to where and in what order.
+Providing reasonably flexible control over what is promoted to where and in what order.
 
 ### Notable Features
 
@@ -26,7 +26,7 @@ Providing reasnably flexible control over what is promoted to where and in what 
 
   ```text
   lab -> staging1 -->
-         staging2 -->  prodction
+         staging2 -->  production
          staging3 -->
   ```
 
@@ -58,8 +58,8 @@ Configuration keys:
 |---|---|
 |`promotionPaths`| Array of maps, each map describes a promotion flow|  
 |`promotionPaths[0].sourcePath`| directory that holds components(subdirectories) to be synced, can include a regex.|
-|`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows(flows are evauated in order, first one to match is triggered.)|
-|`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these lables the condition is considered fulfilled. Currently its the only supported condition type|
+|`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows. Flows are evatluated in order, first one to match is triggered.|
+|`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these lables the condition is considered fulfilled. Currently it's the only supported condition type|
 |`promotionPaths[0].targetPaths`|  Array of arrays(!!!) of target paths tied to the source path mentioned above, each top level element represent a PR that will be opened, so multiple target can be synced in a single PR|  
 |`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
@@ -110,7 +110,7 @@ toggleCommitStatus:
 ### Component Configuration
 
 This optional in-component configuation file allows overriding the general promotion configuation for a specific component.  
-File location is `COPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:  
+File location is `COMPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:  
 `workspace/reloader/telefonistka.yaml` or `env/prod/dsm1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`  
 it includes only two optional configuation keys, `promotionTargetBlockList` and `promotionTargetAllowList`.  
 Both are matched against the target component path using Golang regex engine.
