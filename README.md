@@ -92,35 +92,35 @@ promotionPaths:
   - sourcePath: "workspace/"
     targetPaths:
       - 
-        - "clusters/dev/iad1/c2"
-        - "clusters/sdedev/grq1/c1"
-        - "clusters/sdeprod/dsm1/c1"
-        - "clusters/sdeprod/dsm1/c2"
-        - "clusters/sdeprod/grq1/c1"
-  - sourcePath: "clusters/sdeprod/[^/]*/[^/]*" # This will start a promotion to prod from any "sdeprod" path
+        - "clusters/dev/us-east4/c2"
+        - "clusters/lab/europe-west4/c1"
+        - "clusters/staging/us-central1/c1"
+        - "clusters/staging/us-central1/c2"
+        - "clusters/staging/europe-west4/c1"
+  - sourcePath: "clusters/staging/[^/]*/[^/]*" # This will start a promotion to prod from any "staging" path
     conditions:
       prHasLabels:
         - "quick_promotion" # This flow will run only if PR has "quick_promotion" label, see targetPaths below
     targetPaths:
       -
-        - "clusters/prod/pdx1/c2" # First PR for only a single cluster
+        - "clusters/prod/us-west1/c2" # First PR for only a single cluster
       -
-        - "clusters/prod/fra1/c2" # 2nd PR will sync all 4 remaining clusters
-        - "clusters/prod/grq1/c2"
-        - "clusters/prod/dsm1/c2"
-        - "clusters/prod/iad1/c2"
-  - sourcePath: "clusters/sdeprod/[^/]*/[^/]*" # This flow will run on PR without "quick_promotion" label
+        - "clusters/prod/europe-west3/c2" # 2nd PR will sync all 4 remaining clusters
+        - "clusters/prod/europe-west4/c2"
+        - "clusters/prod/us-central1/c2"
+        - "clusters/prod/us-east4/c2"
+  - sourcePath: "clusters/staging/[^/]*/[^/]*" # This flow will run on PR without "quick_promotion" label
     targetPaths:
       -
-        - "clusters/prod/pdx1/c2" # Each cluster will have its own promotion PR
+        - "clusters/prod/us-west1/c2" # Each cluster will have its own promotion PR
       -
-        - "clusters/prod/fra1/c2"
+        - "clusters/prod/europe-west3/c2"
       -
-        - "clusters/prod/grq1/c2"
+        - "clusters/prod/europe-west4/c2"
       -
-        - "clusters/prod/dsm1/c2"
+        - "clusters/prod/us-central1/c2"
       -
-        - "clusters/prod/iad1/c2"
+        - "clusters/prod/us-east4/c2"
 dryRunMode: true
 autoApprovePromotionPrs: true
 toggleCommitStatus:
@@ -129,10 +129,10 @@ toggleCommitStatus:
 
 ## Component Configuration
 
-This optional in-component configuation file allows overriding the general promotion configuation for a specific component.  
+This optional in-component configuration file allows overriding the general promotion configuration for a specific component.  
 File location is `COMPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:  
-`workspace/reloader/telefonistka.yaml` or `env/prod/dsm1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`  
-it includes only two optional configuation keys, `promotionTargetBlockList` and `promotionTargetAllowList`.  
+`workspace/reloader/telefonistka.yaml` or `env/prod/us-central1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`  
+it includes only two optional configuration keys, `promotionTargetBlockList` and `promotionTargetAllowList`.  
 Both are matched against the target component path using Golang regex engine.
 
 If a target path matches an entry in `promotionTargetBlockList` it will not be promoted(regardless of `promotionTargetAllowList`).
@@ -141,11 +141,11 @@ If  `promotionTargetAllowList` exist(non empty), only target paths that matches 
 
 ```yaml
 promotionTargetBlockList:
-  - env/sdeprod/grq1/c1.*
-  - env/prod/dsm1/c3/
+  - env/staging/europe-west4/c1.*
+  - env/prod/us-central1/c3/
 promotionTargetAllowList:
   - env/prod/.*
-  - env/sde.*
+  - env/(dev|lab)/.*
 ```
 
 ## Metrics
