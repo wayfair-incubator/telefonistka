@@ -7,7 +7,7 @@
 
 Telefonistka is a Github webhook server/Bot that facilitate change promotion across environments/failure domains in IaC GitOps repos.
 
-It assumes the [the repeatable part if your infrastucture is modeled in folders](#modeling-environments-failure-domains-in-an-iac-gitops-repo)
+It assumes the [the repeatable part if your infrastucture is modeled in folders](#modeling-environmentsfailure-domains-in-an-iac-gitops-repo)
 
 Based on configuration in the IaC repo, the bot will open Pull Requests that syncs components from "sourcePath"s to "targetPaths".
 
