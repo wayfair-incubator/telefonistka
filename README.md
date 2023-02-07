@@ -1,4 +1,9 @@
-## About The Project
+<p align="center">  <img src="https://user-images.githubusercontent.com/1616153/217223509-9aa60a5c-a263-41a7-814d-a1bf2957acf6.png " width="150"> </p>
+
+# <p align="center"> Telefonistka</p>
+
+
+
 
 Telefonistka is a Github Webhook Bot that facilitate promotions in a IaC GitOps repo that models environments and sites as folders.
 
