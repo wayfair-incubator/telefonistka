@@ -5,11 +5,27 @@
 
 <!-- markdownlint-enable MD033 -->
 
-Telefonistka is a Github Webhook Bot that facilitate promotions in a IaC GitOps repo that models environments and sites as folders.
+Telefonistka is a Github webhook server/Bot that facilitate change promotion across environments/failure domains in IaC GitOps repos.
+
+It assumes the [the repeatable part if your infrastucture is modeled in folders](#modeling-environmentsfailure-domains-in-an-iac-gitops-repo)
 
 Based on configuration in the IaC repo, the bot will open Pull Requests that syncs components from "sourcePath"s to "targetPaths".
 
 Providing reasonably flexible control over what is promoted to where and in what order.
+
+## Modeling environments/failure domains in an IaC GitOps repo
+
+RY is the new DRY!
+
+Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments("dev"/"prod"/...) and failure domains("us-east-1"/"us-west-1"/...).
+
+If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or branches to provide said control.
+
+While using Git branches allows using git native tools for promoting changes(git merge) and inspecting drift(git diff) it quickly becomes cumbersome as the number of distinct environment/FDs grows. Additionally, syncing all your infrastructure from the main branch keeps the GitOps side of things more intuitive and make the promotion side more observable.
+
+This leaves us with "the folders" approach, while gaining simplicity and observability it would requires us to manually copy files around, (r)sync directories or even worse - manually make the same change in multiple files.
+
+This is where Telefonistka comes in.
 
 ## Notable Features
 
@@ -34,8 +50,8 @@ Providing reasonably flexible control over what is promoted to where and in what
          staging3 -->
   ```
 
-* Control over grouping of targetPaths syncs in PRs ("sync all dev clusters in one PR but open a dedicated PR for every production cluster" )
-* Optional in-component allow/block override list("this component should not be deployed to production" or "deploy this only in the us-east-4 region")
+* Control over grouping of targetPaths syncs in PRs ("Sync all dev clusters in one PR but open a dedicated PR for every production cluster" )
+* Optional in-component allow/block override list("This component should not be deployed to production" or "Deploy this only in the us-east-4 region")
 * Drift detection - warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
 
 ## Server Configuration
@@ -76,35 +92,35 @@ promotionPaths:
   - sourcePath: "workspace/"
     targetPaths:
       - 
-        - "clusters/dev/iad1/c2"
-        - "clusters/sdedev/grq1/c1"
-        - "clusters/sdeprod/dsm1/c1"
-        - "clusters/sdeprod/dsm1/c2"
-        - "clusters/sdeprod/grq1/c1"
-  - sourcePath: "clusters/sdeprod/[^/]*/[^/]*" # This will start a promotion to prod from any "sdeprod" path
+        - "clusters/dev/us-east4/c2"
+        - "clusters/lab/europe-west4/c1"
+        - "clusters/staging/us-central1/c1"
+        - "clusters/staging/us-central1/c2"
+        - "clusters/staging/europe-west4/c1"
+  - sourcePath: "clusters/staging/[^/]*/[^/]*" # This will start a promotion to prod from any "staging" path
     conditions:
       prHasLabels:
         - "quick_promotion" # This flow will run only if PR has "quick_promotion" label, see targetPaths below
     targetPaths:
       -
-        - "clusters/prod/pdx1/c2" # First PR for only a single cluster
+        - "clusters/prod/us-west1/c2" # First PR for only a single cluster
       -
-        - "clusters/prod/fra1/c2" # 2nd PR will sync all 4 remaining clusters
-        - "clusters/prod/grq1/c2"
-        - "clusters/prod/dsm1/c2"
-        - "clusters/prod/iad1/c2"
-  - sourcePath: "clusters/sdeprod/[^/]*/[^/]*" # This flow will run on PR without "quick_promotion" label
+        - "clusters/prod/europe-west3/c2" # 2nd PR will sync all 4 remaining clusters
+        - "clusters/prod/europe-west4/c2"
+        - "clusters/prod/us-central1/c2"
+        - "clusters/prod/us-east4/c2"
+  - sourcePath: "clusters/staging/[^/]*/[^/]*" # This flow will run on PR without "quick_promotion" label
     targetPaths:
       -
-        - "clusters/prod/pdx1/c2" # Each cluster will have its own promotion PR
+        - "clusters/prod/us-west1/c2" # Each cluster will have its own promotion PR
       -
-        - "clusters/prod/fra1/c2"
+        - "clusters/prod/europe-west3/c2"
       -
-        - "clusters/prod/grq1/c2"
+        - "clusters/prod/europe-west4/c2"
       -
-        - "clusters/prod/dsm1/c2"
+        - "clusters/prod/us-central1/c2"
       -
-        - "clusters/prod/iad1/c2"
+        - "clusters/prod/us-east4/c2"
 dryRunMode: true
 autoApprovePromotionPrs: true
 toggleCommitStatus:
@@ -113,10 +129,10 @@ toggleCommitStatus:
 
 ## Component Configuration
 
-This optional in-component configuation file allows overriding the general promotion configuation for a specific component.  
+This optional in-component configuration file allows overriding the general promotion configuration for a specific component.  
 File location is `COMPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:  
-`workspace/reloader/telefonistka.yaml` or `env/prod/dsm1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`  
-it includes only two optional configuation keys, `promotionTargetBlockList` and `promotionTargetAllowList`.  
+`workspace/reloader/telefonistka.yaml` or `env/prod/us-central1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`  
+it includes only two optional configuration keys, `promotionTargetBlockList` and `promotionTargetAllowList`.  
 Both are matched against the target component path using Golang regex engine.
 
 If a target path matches an entry in `promotionTargetBlockList` it will not be promoted(regardless of `promotionTargetAllowList`).
@@ -125,11 +141,11 @@ If  `promotionTargetAllowList` exist(non empty), only target paths that matches 
 
 ```yaml
 promotionTargetBlockList:
-  - env/sdeprod/grq1/c1.*
-  - env/prod/dsm1/c3/
+  - env/staging/europe-west4/c1.*
+  - env/prod/us-central1/c3/
 promotionTargetAllowList:
   - env/prod/.*
-  - env/sde.*
+  - env/(dev|lab)/.*
 ```
 
 ## Metrics
@@ -168,6 +184,12 @@ TODO
 ## Roadmap
 
 See the [open issues](https://github.com/wayfair-incubator/telefonistka/issues) for a list of proposed features (and known issues).
+
+## FAQ
+
+* Why is this deployed as a webhook server and not a CI/CD plugin like Github Actions? - Modern CI/CD system like GH actions and CircleCI usually allow unapproved code/configuration to execute on branches/PRs, this makes securing them or the secret they need somewhat hard.  
+Telefonistka needs credentials that allows opening PRs and approving them which in an IaC GitOps repo represent significant power. Running it as a distinct workload in a VM/container provides better security.  
+That being said, we acknowledge that maintaining an additional piece of infrastructure might not be for everyone, especially if you need it for only one repo so we do plan to release a Github action based version in the future.
 
 ## Contributing
 
