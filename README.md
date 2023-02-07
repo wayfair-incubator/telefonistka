@@ -173,8 +173,7 @@ telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 
 * use Ngrok ( `ngrok http 8080` ) to expose the local instance
 * See the URLs in ngrok command output.
-* Add a webhook to repo setting e.g. `https://github.csnzoo.com/ob136j/k8s-gitops-poc/settings/hooks`
-(don't forget the `/webhook` path in the URL).
+* Add a webhook to repo setting (don't forget the `/webhook` path in the URL).
 * Content type needs to be `application/json`, **currently** only PR events are needed
 
 ## Installation
