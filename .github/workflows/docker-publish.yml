@@ -70,13 +70,16 @@ jobs:
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
+      # 1st image name is for GH package repo
+      # 2nd image name is for DockerHub image
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@766400ca14a75010e7b2e3119aa0d5b46826e8c7
         with: 
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            obenozer412/${{ env.IMAGE_NAME }} #Docker Hub registery
+            obenozer412/${{ env.IMAGE_NAME }}
+
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
