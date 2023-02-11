@@ -19,10 +19,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL string, ctx context.Context) *github.Client {
+func createGithubInstalltionHttpClient(githubAppPrivateKeyPath string, githubRestAltURL string, ctx context.Context) (*http.Client, error) {
 	// GitHib app installation auth works as follows:
 	// Use private key to generate JWT
-	// Use JWT to in a temp new client to fetch access token
+	// Use JWT to in a temp new client to fetch "final" access token
 	// Use new access token in a new token
 
 	githubAppId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_ID"), 10, 64)
@@ -34,10 +34,10 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL 
 	if err != nil {
 		panic(err)
 	}
-	var client *github.Client
+	var tempClient *github.Client
 
 	if githubRestAltURL != "" {
-		client, err = github.NewEnterpriseClient(
+		tempClient, err = github.NewEnterpriseClient(
 			githubRestAltURL,
 			githubRestAltURL,
 			&http.Client{
@@ -48,14 +48,14 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL 
 			log.Fatalf("faild to create git client for app: %v\n", err)
 		}
 	} else {
-		client = github.NewClient(
+		tempClient = github.NewClient(
 			&http.Client{
 				Transport: atr,
 				Timeout:   time.Second * 30,
 			})
 	}
 
-	installations, _, err := client.Apps.ListInstallations(context.Background(), &github.ListOptions{})
+	installations, _, err := tempClient.Apps.ListInstallations(context.Background(), &github.ListOptions{})
 	if err != nil {
 		log.Fatalf("failed to list installations: %v\n", err)
 	}
@@ -67,7 +67,7 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL 
 
 	log.Infoln(installID)
 
-	token, _, err := client.Apps.CreateInstallationToken(
+	token, _, err := tempClient.Apps.CreateInstallationToken(
 		ctx,
 		installID,
 		&github.InstallationTokenOptions{})
@@ -78,13 +78,25 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL 
 		&oauth2.Token{AccessToken: token.GetToken()},
 	)
 
-	oAuthClient := oauth2.NewClient(context.Background(), ts)
-	// create new git hub client with accessToken
-	apiClient, err := github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, oAuthClient)
+	return oauth2.NewClient(context.Background(), ts), nil
+}
+
+func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL string, ctx context.Context) *github.Client {
+	oauthClient, err := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubRestAltURL, ctx)
+	var finalClient *github.Client
+	if githubRestAltURL != "" {
+		finalClient, err = github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, oauthClient)
+		if err != nil {
+			log.Fatalf("faild to create git client for app: %v\n", err)
+		}
+	} else {
+		finalClient = github.NewClient(oauthClient)
+	}
+
 	if err != nil {
 		log.Fatalf("failed to create new git client with token: %v\n", err)
 	}
-	return apiClient
+	return finalClient
 }
 
 func createGithubRestClient(tokenEnvVarName string, githubRestAltURL string, ctx context.Context) *github.Client {
@@ -101,6 +113,16 @@ func createGithubRestClient(tokenEnvVarName string, githubRestAltURL string, ctx
 		client = github.NewClient(tc)
 	}
 
+	return client
+}
+func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubGraphqlAltURL string, ctx context.Context) *githubv4.Client {
+	httpClient, _ := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubGraphqlAltURL, ctx)
+	var client *githubv4.Client
+	if githubGraphqlAltURL != "" {
+		client = githubv4.NewEnterpriseClient(githubGraphqlAltURL, httpClient)
+	} else {
+		client = githubv4.NewClient(httpClient)
+	}
 	return client
 }
 
@@ -160,6 +182,7 @@ func main() {
 	ctx := context.Background()
 
 	var mainGithubClient *github.Client
+	var githubGraphQlClient *githubv4.Client
 
 	githubAppPrivateKeyPath := getEnv("GITHUB_APP_PRIVATE_KEY_PATH", "")
 	githubHost := getEnv("GITHUB_HOST", "")
@@ -168,17 +191,21 @@ func main() {
 	if githubHost != "" {
 		githubRestAltURL = githubHost + "/api/v3"
 		githubGraphqlAltURL = githubHost + "api/graphql"
+		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
+	} else {
+		log.Infof("Using public Github API endpoint")
 	}
 	if githubAppPrivateKeyPath != "" {
 		log.Infoln("Using GH app auth")
 		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubRestAltURL, ctx)
+		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubGraphqlAltURL, ctx)
 	} else {
 		mainGithubClient = createGithubRestClient("GITHUB_OAUTH_TOKEN", githubRestAltURL, ctx)
+		githubGraphQlClient = createGithubGraphQlClient("GITHUB_OAUTH_TOKEN", githubGraphqlAltURL)
 	}
 
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
 	prApproverGithubClient := createGithubRestClient("APPROVER_GITHUB_OAUTH_TOKEN", githubRestAltURL, ctx)
-	githubGraphQlClient := createGithubGraphQlClient("GITHUB_OAUTH_TOKEN", githubGraphqlAltURL)
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
 	readinessChecker := health.NewChecker(
 		health.WithPeriodicCheck(30*time.Second, 0*time.Second, health.Check{
