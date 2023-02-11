@@ -115,6 +115,7 @@ func createGithubRestClient(tokenEnvVarName string, githubRestAltURL string, ctx
 
 	return client
 }
+
 func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubGraphqlAltURL string, ctx context.Context) *githubv4.Client {
 	httpClient, _ := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubGraphqlAltURL, ctx)
 	var client *githubv4.Client
