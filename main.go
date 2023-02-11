@@ -19,33 +19,42 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func createGithubAppRestClient(githubAppPrivateKeyPath string, githubURLEnvVarName string, ctx context.Context) *github.Client {
-	//GitHib app installation auth works as follows:
+func createGithubAppRestClient(githubAppPrivateKeyPath string, githubRestAltURL string, ctx context.Context) *github.Client {
+	// GitHib app installation auth works as follows:
 	// Use private key to generate JWT
 	// Use JWT to in a temp new client to fetch access token
 	// Use new access token in a new token
 
-	githubURL := getCrucialEnv(githubURLEnvVarName)
 	githubAppId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_ID"), 10, 64)
 	if err != nil {
-		log.Fatalf("GITHUB_APP_ID value could not converted to int64", err)
+		log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
 	}
 
 	atr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, githubAppId, githubAppPrivateKeyPath)
 	if err != nil {
 		panic(err)
 	}
-	client, err := github.NewEnterpriseClient(
-		githubURL+"api/v3/",
-		// githubURL,
-		githubURL+"api/uploads",
-		&http.Client{
-			Transport: atr,
-			Timeout:   time.Second * 30,
-		})
-	if err != nil {
-		log.Fatalf("faild to create git client for app: %v\n", err)
+	var client *github.Client
+
+	if githubRestAltURL != "" {
+		client, err = github.NewEnterpriseClient(
+			githubRestAltURL,
+			githubRestAltURL,
+			&http.Client{
+				Transport: atr,
+				Timeout:   time.Second * 30,
+			})
+		if err != nil {
+			log.Fatalf("faild to create git client for app: %v\n", err)
+		}
+	} else {
+		client = github.NewClient(
+			&http.Client{
+				Transport: atr,
+				Timeout:   time.Second * 30,
+			})
 	}
+
 	installations, _, err := client.Apps.ListInstallations(context.Background(), &github.ListOptions{})
 	if err != nil {
 		log.Fatalf("failed to list installations: %v\n", err)
@@ -53,14 +62,13 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubURLEnvVarNa
 
 	var installID int64
 	for _, val := range installations {
-		installID = val.GetID() //TODO how would this work on multiple installs????!?
+		installID = val.GetID() // TODO how would this work on multiple installs????!?
 	}
 
 	log.Infoln(installID)
 
 	token, _, err := client.Apps.CreateInstallationToken(
 		ctx,
-		// installID,
 		installID,
 		&github.InstallationTokenOptions{})
 	if err != nil {
@@ -71,43 +79,41 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubURLEnvVarNa
 	)
 
 	oAuthClient := oauth2.NewClient(context.Background(), ts)
-	//create new git hub client with accessToken
-	apiClient, err := github.NewEnterpriseClient(githubURL+"api/v3/", githubURL+"api/uploads", oAuthClient)
+	// create new git hub client with accessToken
+	apiClient, err := github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, oAuthClient)
 	if err != nil {
 		log.Fatalf("failed to create new git client with token: %v\n", err)
 	}
 	return apiClient
 }
 
-func createGithubRestClient(tokenEnvVarName string, githubURLEnvVarName string, ctx context.Context) *github.Client {
+func createGithubRestClient(tokenEnvVarName string, githubRestAltURL string, ctx context.Context) *github.Client {
 	githubOauthToken := getCrucialEnv(tokenEnvVarName)
-	githubURL := getCrucialEnv(githubURLEnvVarName)
 
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
 	tc := oauth2.NewClient(ctx, ts)
 	var client *github.Client
-	if githubURL == "" {
-		client = github.NewClient(tc)
+	if githubRestAltURL != "" {
+		client, _ = github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, tc)
 	} else {
-		client, _ = github.NewEnterpriseClient(githubURL+"api/v3/", githubURL+"api/uploads", tc)
+		client = github.NewClient(tc)
 	}
 
 	return client
 }
 
-func createGithubGraphQlClient(tokenEnvVarName string, githubURLEnvVarName string) *githubv4.Client {
-	githubURL := getCrucialEnv(githubURLEnvVarName)
+func createGithubGraphQlClient(tokenEnvVarName string, githubGraphqlAltURL string) *githubv4.Client {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: getCrucialEnv(tokenEnvVarName)},
 	)
 	httpClient := oauth2.NewClient(context.Background(), ts)
 	var client *githubv4.Client
-	if githubURL == "" {
-		client = githubv4.NewClient(httpClient)
+	if githubGraphqlAltURL != "" {
+		client = githubv4.NewEnterpriseClient(githubGraphqlAltURL, httpClient)
 	} else {
-		client = githubv4.NewEnterpriseClient(githubURL+"api/graphql", httpClient)
+		client = githubv4.NewClient(httpClient)
 	}
 	return client
 }
@@ -156,16 +162,23 @@ func main() {
 	var mainGithubClient *github.Client
 
 	githubAppPrivateKeyPath := getEnv("GITHUB_APP_PRIVATE_KEY_PATH", "")
+	githubHost := getEnv("GITHUB_HOST", "")
+	var githubRestAltURL string
+	var githubGraphqlAltURL string
+	if githubHost != "" {
+		githubRestAltURL = githubHost + "/api/v3"
+		githubGraphqlAltURL = githubHost + "api/graphql"
+	}
 	if githubAppPrivateKeyPath != "" {
 		log.Infoln("Using GH app auth")
-		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, "GITHUB_URL", ctx)
+		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubRestAltURL, ctx)
 	} else {
-		mainGithubClient = createGithubRestClient("GITHUB_OAUTH_TOKEN", "GITHUB_URL", ctx)
+		mainGithubClient = createGithubRestClient("GITHUB_OAUTH_TOKEN", githubRestAltURL, ctx)
 	}
 
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
-	prApproverGithubClient := createGithubRestClient("APPROVER_GITHUB_OAUTH_TOKEN", "GITHUB_URL", ctx)
-	githubGraphQlClient := createGithubGraphQlClient("GITHUB_OAUTH_TOKEN", "GITHUB_URL")
+	prApproverGithubClient := createGithubRestClient("APPROVER_GITHUB_OAUTH_TOKEN", githubRestAltURL, ctx)
+	githubGraphQlClient := createGithubGraphQlClient("GITHUB_OAUTH_TOKEN", githubGraphqlAltURL)
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
 	readinessChecker := health.NewChecker(
 		health.WithPeriodicCheck(30*time.Second, 0*time.Second, health.Check{

@@ -62,7 +62,7 @@ Environment variables for the webhook process:
 
 `GITHUB_OAUTH_TOKEN` GitHub main oAuth token for all other GH operations
 
-`GITHUB_URL` URL for github API (needed for Github Enterprise)
+`GITHUB_HOST` URL for github API, needed for Github Enterprise Server, should include http scheme but no `/api/v3` path, e.g. :`https://my-gh-host.com/`
 
 `GITHUB_WEBHOOK_SECRET` secret used to sign webhook payload to be validated by the WH server, must match the sting in repo settings/hooks page
 
