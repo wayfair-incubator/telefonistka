@@ -66,6 +66,10 @@ Environment variables for the webhook process:
 
 `GITHUB_WEBHOOK_SECRET` secret used to sign webhook payload to be validated by the WH server, must match the sting in repo settings/hooks page
 
+`GITHUB_APP_PRIVATE_KEY_PATH`  Private key for Github applications style of deployments, in PEM format
+
+`GITHUB_APP_ID` Application ID for Github applications style of deployments, available in the Github Application setting page.
+
 Behavior of the bot is configured by YAML files **in the target repo**:
 
 ## Repo Configuration
