@@ -53,7 +53,7 @@ func generateDiffOutput(ghPrClientDetails GhPrClientDetails, defaultBranch strin
 	if len(filesWithDiff) != 0 {
 		diffOutput.WriteString("\n### Blame Links:\n")
 		githubURL := ghPrClientDetails.Ghclient.BaseURL.String()
-		blameUrlPrefix := githubURL + ghPrClientDetails.Owner + "/" + ghPrClientDetails.Repo + "/blame" // TODO get GITHUB_URL in a better way
+		blameUrlPrefix := githubURL + ghPrClientDetails.Owner + "/" + ghPrClientDetails.Repo + "/blame"
 
 		for _, f := range filesWithDiff {
 			diffOutput.WriteString("[" + f + "](" + blameUrlPrefix + "/HEAD/" + f + ")\n") // TODO consider switching HEAD to specific SHA
