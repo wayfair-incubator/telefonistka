@@ -93,7 +93,7 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 	context := "telefonistka"
 	avatarURL := "https://avatars.githubusercontent.com/u/1616153?s=64"
 	description := "Telefonistka GitOps Bot"
-	targetURL := "https://cloudlogging.app.goo.gl/Qt9XFT71fiNW6TcDA"
+	targetURL := "https://github.com/wayfair-incubator/telefonistka"
 
 	commitStatus := &github.RepoStatus{
 		TargetURL:   &targetURL,
