@@ -49,16 +49,15 @@ This is where Telefonistka comes in.
          staging2 -->  production
          staging3 -->
   ```
+
   Telefonistka annotates the PR with the historic "flow" of the promotion:
   ![image](https://user-images.githubusercontent.com/1616153/219384172-27b960a8-afd1-42d1-8d5b-4b802134b851.png)
-
 
 * Control over grouping of targetPaths syncs in PRs ("Sync all dev clusters in one PR but open a dedicated PR for every production cluster" )
 * Optional in-component allow/block override list("This component should not be deployed to production" or "Deploy this only in the us-east-4 region")
 * Drift detection - warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
   This is how this warnning looks in the PR:
   ![image](https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png)
-
 
 ## Installation and Configuration
 
