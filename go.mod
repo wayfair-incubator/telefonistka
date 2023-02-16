@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	github.com/alexliesenfeld/health v0.6.0
+	github.com/bradleyfalzon/ghinstallation/v2 v2.1.0
 	github.com/go-test/deep v1.1.0
 	github.com/google/go-github/v48 v48.2.0
 	github.com/hexops/gotextdiff v1.0.3
@@ -11,13 +12,12 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/shurcooL/githubv4 v0.0.0-20221229060216-a8d4a561cc93
 	github.com/sirupsen/logrus v1.9.0
-	golang.org/x/oauth2 v0.4.0
+	golang.org/x/oauth2 v0.5.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bradleyfalzon/ghinstallation/v2 v2.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
