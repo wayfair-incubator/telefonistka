@@ -191,17 +191,19 @@ Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate
 
 ## Installation
 
-The Github side of the configuration could be done via a creation of an GitHub Application(recommded) or by configuring a webhook + github service account permission for each relevant repo.
+The current version of the docs doesn't cover the details of running the Telefonistka instance beyond listing its [configuration options](#server-configuration) and noting that its `/webhook` endpoint needs to accessable from Github(Cloud or private instance)
+
+The Github side of the configuration could be done via a creation of an GitHub Application(recommended) or by configuring a webhook + github service account permission for each relevant repo.
 
 ### GitHub Application
 
 * Create the application.
   * Go to GitHub [apps page](https://github.com/settings/apps) under "Developer settings" and create a new app.
-  * Set the Webhooks URL to point to your running Telefonistka instance(remember the `/webhook` URL path)
+  * Set the Webhooks URL to point to your running Telefonistka instance(remember the `/webhook` URL path), use HTTPS and set `Webhook secret` (pass  to instace via `GITHUB_WEBHOOK_SECRET` env var)
   * Provide the new app with read&write `Repository permissions` for `Commit statuses`, `Contents`, `Issues` and `Pull requests`.
   * Subscribe to `Issues` and `Pull request` events
-  * Generate a `Private key` and provide it you your instance with the  `GITHUB_APP_PRIVATE_KEY_PATH` Env variable.
-  * Grab the `App ID` provide it you your instance with the `GITHUB_APP_ID` Env variable.
+  * Generate a `Private key` and provide it you your instance with the  `GITHUB_APP_PRIVATE_KEY_PATH` env variable.
+  * Grab the `App ID` provide it you your instance with the `GITHUB_APP_ID` env variable.
 * For each relevant repo:
   * Add repo to application configuration.
   * Add `telefonistka.yaml` to repo root.
