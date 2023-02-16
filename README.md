@@ -180,9 +180,41 @@ telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 * Add a webhook to repo setting (don't forget the `/webhook` path in the URL).
 * Content type needs to be `application/json`, **currently** only PR events are needed
 
+## GitHub API Limit
+
+Check [GitHub docs](https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/rate-limits-for-github-apps) for details about the API rate limit.
+This is the section relevant for GitHub Application style installation of Telefonistka:
+
+> GitHub Apps making server-to-server requests use the installation's minimum rate limit of 5,000 requests per hour. If an application is installed on an > organization with more than 20 users, the application receives another 50 requests per hour for each user. Installations that have more than 20 repositories receive another 50 requests per hour for each repository. The maximum rate limit for an installation is 12,500 requests per hour.
+
+Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate_limit`  and `telefonistka_github_github_rest_api_client_rate_remaining` metrics
+
 ## Installation
 
-TODO
+The current version of the docs doesn't cover the details of running the Telefonistka instance beyond listing its [configuration options](#server-configuration) and noting that its `/webhook` endpoint needs to accessable from Github(Cloud or private instance)
+
+The Github side of the configuration could be done via a creation of an GitHub Application(recommended) or by configuring a webhook + github service account permission for each relevant repo.
+
+### GitHub Application
+
+* Create the application.
+  * Go to GitHub [apps page](https://github.com/settings/apps) under "Developer settings" and create a new app.
+  * Set the Webhooks URL to point to your running Telefonistka instance(remember the `/webhook` URL path), use HTTPS and set `Webhook secret` (pass  to instace via `GITHUB_WEBHOOK_SECRET` env var)
+  * Provide the new app with read&write `Repository permissions` for `Commit statuses`, `Contents`, `Issues` and `Pull requests`.
+  * Subscribe to `Issues` and `Pull request` events
+  * Generate a `Private key` and provide it you your instance with the  `GITHUB_APP_PRIVATE_KEY_PATH` env variable.
+  * Grab the `App ID` provide it you your instance with the `GITHUB_APP_ID` env variable.
+* For each relevant repo:
+  * Add repo to application configuration.
+  * Add `telefonistka.yaml` to repo root.
+
+### Webhook + service account
+
+* Create a github service account(basically a regualr account) and generate an API Token, provide token via `GITHUB_OAUTH_TOKEN` Env var
+* For each relevant repo:
+  * Add the Telefonistka API endpoints to the webhooks under the repo settings page.
+  * Ensure the service account has the relevant permission on the repo.
+  * Add `telefonistka.yaml` to repo root.
 
 ## Roadmap
 
