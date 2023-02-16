@@ -192,7 +192,6 @@ func handleMergedPrEvent(ghPrClientDetails githubapi.GhPrClientDetails, prApprov
 	promotions, _ := promotion.GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
 	// log.Infof("%+v", promotions)
 	if !config.DryRunMode {
-
 		for _, promotion := range promotions {
 			// TODO this whole part shouldn't be in main, but I need to refactor some circular dep's
 

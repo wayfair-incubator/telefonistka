@@ -370,7 +370,7 @@ func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, so
 	newPrBody = fmt.Sprintf("# Promotion Path(%s):\n\n", components)
 
 	keys := make([]int, 0)
-	for k, _ := range newPrMetadata.PreviousPromotionMetadata {
+	for k := range newPrMetadata.PreviousPromotionMetadata {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
