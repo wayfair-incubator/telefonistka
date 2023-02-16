@@ -2,14 +2,22 @@ package githubapi
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/google/go-github/v48/github"
 	log "github.com/sirupsen/logrus"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 )
+
+type promotionInstanceMetaData struct {
+	SourcePath  string   `json:"sourcePath"`
+	TargetPaths []string `json:"targetPaths"`
+}
 
 type GhPrClientDetails struct {
 	Ghclient *github.Client
@@ -24,6 +32,39 @@ type GhPrClientDetails struct {
 	Ref           string
 	PrLogger      *log.Entry
 	Labels        []*github.Label
+	PrMetadata    prMetadata
+}
+
+type prMetadata struct {
+	OriginalPrAuthor          string                            `json:"originalPrAuthor"`
+	OriginalPrNumber          int                               `json:"originalPrNumber"`
+	PreviousPromotionMetadata map[int]promotionInstanceMetaData `json:"previousPromotionPaths"`
+}
+
+func (pm prMetadata) serialize() (string, error) {
+	pmJson, err := json.Marshal(pm)
+	if err != nil {
+		return "", err
+	}
+	// var compressedPmJson []byte
+	// _, err = lz4.CompressBlock(pmJson, compressedPmJson, nil)
+	// if err != nil {
+	// return "", err
+	// }
+	return base64.StdEncoding.EncodeToString(pmJson), nil
+}
+
+func (pm *prMetadata) DeSerialize(s string) error {
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return err
+	}
+	// _, err = lz4.UncompressBlock(decoded, unCompressedPmJson)
+	// if err != nil {
+	// return err
+	// }
+	err = json.Unmarshal(decoded, pm)
+	return err
 }
 
 func (p GhPrClientDetails) CommentOnPr(commentBody string) error {
@@ -299,15 +340,47 @@ func CreateBranch(ghPrClientDetails GhPrClientDetails, commit *github.Commit, ta
 	return newBranchRef, err
 }
 
-func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, targetPaths []string, componentNames []string, originalPrNumber int, defaultBranch string) (*github.PullRequest, error) {
-	components := strings.Join(componentNames, ",")
-	newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, strings.Join(targetPaths, " "))
+func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, sourcePath string, targetPaths []string, componentNames []string, defaultBranch string) (*github.PullRequest, error) {
+	var newPrMetadata prMetadata
 	var newPrBody string
-	if len(targetPaths) == 1 {
-		newPrBody = fmt.Sprintf("Promotion of PR #%v (`%s`) to: `%s`", originalPrNumber, components, targetPaths[0])
+	components := strings.Join(componentNames, ",")
+
+	// newPrMetadata will be serialized and persisted in the PR body for use when the PR is merged
+
+	if ghPrClientDetails.PrMetadata.OriginalPrAuthor != "" {
+		newPrMetadata.OriginalPrAuthor = ghPrClientDetails.PrMetadata.OriginalPrAuthor
 	} else {
-		newPrBody = fmt.Sprintf("Promotion of PR #%v (`%s`) to:\n```\n%s\n```", originalPrNumber, components, strings.Join(targetPaths, "\n"))
+		newPrMetadata.OriginalPrAuthor = ghPrClientDetails.PrAuthor
 	}
+
+	if ghPrClientDetails.PrMetadata.PreviousPromotionMetadata != nil {
+		newPrMetadata.PreviousPromotionMetadata = ghPrClientDetails.PrMetadata.PreviousPromotionMetadata
+	} else {
+		newPrMetadata.PreviousPromotionMetadata = make(map[int]promotionInstanceMetaData)
+	}
+
+	newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber] = promotionInstanceMetaData{
+		TargetPaths: targetPaths,
+		SourcePath:  sourcePath,
+	}
+	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].TargetPaths = targetPaths
+	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].SourcePath = sourcePath
+
+	newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, strings.Join(targetPaths, " "))
+	newPrBody = fmt.Sprintf("# Promotion Path(%s):\n\n", components)
+
+	keys := make([]int, 0)
+	for k, _ := range newPrMetadata.PreviousPromotionMetadata {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for i, k := range keys {
+		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️ `%s`\n", strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", i), k, newPrMetadata.PreviousPromotionMetadata[k].SourcePath, newPrMetadata.PreviousPromotionMetadata[k].TargetPaths)
+	}
+
+	prMetadataString, _ := newPrMetadata.serialize()
+
+	newPrBody = newPrBody + "\n<!--|Telefonistka data, do not delete|" + prMetadataString + "|-->"
 
 	newPrConfig := &github.NewPullRequest{
 		Body:  github.String(newPrBody),
@@ -334,13 +407,13 @@ func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, ta
 		ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", pull.Number, prLables)
 	}
 
-	_, resp, err = ghPrClientDetails.Ghclient.Issues.AddAssignees(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{ghPrClientDetails.PrAuthor})
+	_, resp, err = ghPrClientDetails.Ghclient.Issues.AddAssignees(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{newPrMetadata.OriginalPrAuthor})
 	prom.InstrumentGhCall(resp)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Could set %s as assignee on PR,  err=%s", ghPrClientDetails.PrAuthor, err)
+		ghPrClientDetails.PrLogger.Errorf("Could set %s as assignee on PR,  err=%s", newPrMetadata.OriginalPrAuthor, err)
 		return pull, err
 	} else {
-		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", ghPrClientDetails.PrAuthor)
+		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", newPrMetadata.OriginalPrAuthor)
 	}
 
 	// reviewers := github.ReviewersRequest{

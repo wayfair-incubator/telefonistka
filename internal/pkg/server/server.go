@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"text/template"
 
@@ -80,6 +81,18 @@ func HandleWebhook(mainGithubClient *github.Client, prApproverGithubClient *gith
 				PrAuthor: *eventPayload.PullRequest.User.Login,
 				PrLogger: prLogger,
 				PrSHA:    *eventPayload.PullRequest.Head.SHA,
+			}
+
+			prMetadataRegex := regexp.MustCompile(`<!--\|.*\|(.*)\|-->`)
+			serializedPrMetadata := prMetadataRegex.FindStringSubmatch(eventPayload.PullRequest.GetBody())
+			if len(serializedPrMetadata) == 2 {
+				if serializedPrMetadata[1] != "" {
+					ghPrClientDetails.PrLogger.Info("Found PR metadata")
+					err = ghPrClientDetails.PrMetadata.DeSerialize(serializedPrMetadata[1])
+					if err != nil {
+						ghPrClientDetails.PrLogger.Errorf("Fail to parser PR metadata %v", err)
+					}
+				}
 			}
 
 			githubapi.SetCommitStatus(ghPrClientDetails, "pending")
@@ -179,6 +192,7 @@ func handleMergedPrEvent(ghPrClientDetails githubapi.GhPrClientDetails, prApprov
 	promotions, _ := promotion.GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
 	// log.Infof("%+v", promotions)
 	if !config.DryRunMode {
+
 		for _, promotion := range promotions {
 			// TODO this whole part shouldn't be in main, but I need to refactor some circular dep's
 
@@ -210,7 +224,7 @@ func handleMergedPrEvent(ghPrClientDetails githubapi.GhPrClientDetails, prApprov
 				ghPrClientDetails.PrLogger.Errorf("Branch creation failed: err=%v", err)
 				return err
 			}
-			pull, err := githubapi.CreatePrObject(ghPrClientDetails, newBranchRef, promotion.Metadata.TargetPaths, promotion.Metadata.ComponentNames, ghPrClientDetails.PrNumber, defaultBranch)
+			pull, err := githubapi.CreatePrObject(ghPrClientDetails, newBranchRef, promotion.Metadata.SourcePath, promotion.Metadata.TargetPaths, promotion.Metadata.ComponentNames, defaultBranch)
 			if err != nil {
 				ghPrClientDetails.PrLogger.Errorf("PR opening failed: err=%v", err)
 				return err
