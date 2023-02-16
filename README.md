@@ -180,8 +180,8 @@ telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 * Add a webhook to repo setting (don't forget the `/webhook` path in the URL).
 * Content type needs to be `application/json`, **currently** only PR events are needed
 
-
 ## GitHub API Limit
+
 Check [GitHub docs](https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/rate-limits-for-github-apps) for details about the API rate limit.
 This is the section relevant for GitHub Application style installation of Telefonistka:
 
@@ -193,23 +193,20 @@ Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate
 
 The Github side of the configuration could be done via a creation of an GitHub Application(recommded) or by configuring a webhook + github service account permission for each relevant repo.
 
-### GitHub Application 
+### GitHub Application
 
 * create the application.
 * For each relevant repo:
-* * Add repo to application configuration.
-* * Add `telefonistka.yaml` to repo root.
-
-
+  * Add repo to application configuration.
+  * Add `telefonistka.yaml` to repo root.
 
 ### Webhook + service account
 
 * Create a github service account(basically a regualr account) and generate an API Token
 * For each relevant repo:
-* * Add the Telefonistka API endpoints to the webhooks under the repo settings page.
-* * Ensure the service account has the relevant permission on the repo.
-* * Add `telefonistka.yaml` to repo root.
-
+  * Add the Telefonistka API endpoints to the webhooks under the repo settings page.
+  * Ensure the service account has the relevant permission on the repo.
+  * Add `telefonistka.yaml` to repo root.
 
 ## Roadmap
 
