@@ -288,6 +288,7 @@ func CreateSyncCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to create Git Tree object: err=%s\n%+v", err, resp)
+		ghPrClientDetails.PrLogger.Errorf("These are the treeEntries: %+v", treeEntries)
 		return nil, err
 	}
 	parentCommit, resp, err := ghPrClientDetails.Ghclient.Git.GetCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *baseTreeSHA)
@@ -367,15 +368,26 @@ func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, so
 	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].SourcePath = sourcePath
 
 	newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, strings.Join(targetPaths, " "))
-	newPrBody = fmt.Sprintf("# Promotion Path(%s):\n\n", components)
+	newPrBody = fmt.Sprintf("Promotion path(%s):\n\n", components)
 
 	keys := make([]int, 0)
 	for k := range newPrMetadata.PreviousPromotionMetadata {
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
+	sp := ""
+	tp := ""
 	for i, k := range keys {
-		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️ `%s`\n", strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", i), k, newPrMetadata.PreviousPromotionMetadata[k].SourcePath, newPrMetadata.PreviousPromotionMetadata[k].TargetPaths)
+		if len(newPrMetadata.PreviousPromotionMetadata[k].SourcePath) > 50 {
+			sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath[:45] + "...✂️"
+		} else {
+			sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath
+		}
+		tp = "[" + strings.Join(newPrMetadata.PreviousPromotionMetadata[k].TargetPaths, ",") + "]"
+		if len(tp) > 50 {
+			tp = tp[:45] + "...✂️"
+		}
+		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️ `%s`\n", strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", i), k, sp, tp)
 	}
 
 	prMetadataString, _ := newPrMetadata.serialize()
