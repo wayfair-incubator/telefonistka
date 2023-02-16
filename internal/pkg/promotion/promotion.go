@@ -67,7 +67,7 @@ func DetectDrift(ghPrClientDetails githubapi.GhPrClientDetails) error {
 		for trgt, src := range promotion.ComputedSyncPaths {
 			hasDiff, diffOutput, _ := githubapi.CompareRepoDirectories(ghPrClientDetails, src, trgt, defaultBranch)
 			if hasDiff {
-				mapKey := fmt.Sprintf("%s >> %s", src, trgt)
+				mapKey := fmt.Sprintf("`%s` ↔️  `%s`", src, trgt)
 				diffOutputMap[mapKey] = diffOutput
 				ghPrClientDetails.PrLogger.Debugf("Found diff @ %s", mapKey)
 			}
