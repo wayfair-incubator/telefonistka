@@ -17,7 +17,7 @@ Providing reasonably flexible control over what is promoted to where and in what
 
 RY is the new DRY!
 
-Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments("dev"/"prod"/...) and failure domains("us-east-1"/"us-west-1"/...).
+Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...).
 
 If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or branches to provide said control.
 
@@ -29,7 +29,7 @@ This is where Telefonistka comes in.
 
 ## Notable Features
 
-* IaC technology agnostic - Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied "as is".
+* IaC technology agnostic - Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied between environments "as is".
 * Multi stage promotion schemes like  
 
   ```text
@@ -50,128 +50,22 @@ This is where Telefonistka comes in.
          staging3 -->
   ```
 
+  Telefonistka annotates the PR with the historic "flow" of the promotion:
+  ![image](https://user-images.githubusercontent.com/1616153/219384172-27b960a8-afd1-42d1-8d5b-4b802134b851.png)
+
 * Control over grouping of targetPaths syncs in PRs ("Sync all dev clusters in one PR but open a dedicated PR for every production cluster" )
 * Optional in-component allow/block override list("This component should not be deployed to production" or "Deploy this only in the us-east-4 region")
 * Drift detection - warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
+  This is how this warnning looks in the PR:
+  ![image](https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png)
 
-## Server Configuration
+## Installation and Configuration
 
-Environment variables for the webhook process:
+See [here](docs/installation.md)
 
-`APPROVER_GITHUB_OAUTH_TOKEN` GitHub oAuth token for automatically approving promotion PRs
+## Observability
 
-`GITHUB_OAUTH_TOKEN` GitHub main oAuth token for all other GH operations
-
-`GITHUB_HOST` URL for github API, needed for Github Enterprise Server, should include http scheme but no `/api/v3` path, e.g. :`https://my-gh-host.com/`
-
-`GITHUB_WEBHOOK_SECRET` secret used to sign webhook payload to be validated by the WH server, must match the sting in repo settings/hooks page
-
-`GITHUB_APP_PRIVATE_KEY_PATH`  Private key for Github applications style of deployments, in PEM format
-
-`GITHUB_APP_ID` Application ID for Github applications style of deployments, available in the Github Application setting page.
-
-Behavior of the bot is configured by YAML files **in the target repo**:
-
-## Repo Configuration
-
-Pulled from `telefonistka.yaml` file in the repo root directory(default branch)
-
-Configuration keys:  
-
-|key|desc|
-|---|---|
-|`promotionPaths`| Array of maps, each map describes a promotion flow|  
-|`promotionPaths[0].sourcePath`| directory that holds components(subdirectories) to be synced, can include a regex.|
-|`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows. Flows are evatluated in order, first one to match is triggered.|
-|`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these lables the condition is considered fulfilled. Currently it's the only supported condition type|
-|`promotionPaths[0].targetPaths`|  Array of arrays(!!!) of target paths tied to the source path mentioned above, each top level element represent a PR that will be opened, so multiple target can be synced in a single PR|  
-|`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
-|`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
-|`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
-
-Example:
-
-```yaml
-promotionPaths:
-  - sourcePath: "workspace/"
-    targetPaths:
-      - 
-        - "clusters/dev/us-east4/c2"
-        - "clusters/lab/europe-west4/c1"
-        - "clusters/staging/us-central1/c1"
-        - "clusters/staging/us-central1/c2"
-        - "clusters/staging/europe-west4/c1"
-  - sourcePath: "clusters/staging/[^/]*/[^/]*" # This will start a promotion to prod from any "staging" path
-    conditions:
-      prHasLabels:
-        - "quick_promotion" # This flow will run only if PR has "quick_promotion" label, see targetPaths below
-    targetPaths:
-      -
-        - "clusters/prod/us-west1/c2" # First PR for only a single cluster
-      -
-        - "clusters/prod/europe-west3/c2" # 2nd PR will sync all 4 remaining clusters
-        - "clusters/prod/europe-west4/c2"
-        - "clusters/prod/us-central1/c2"
-        - "clusters/prod/us-east4/c2"
-  - sourcePath: "clusters/staging/[^/]*/[^/]*" # This flow will run on PR without "quick_promotion" label
-    targetPaths:
-      -
-        - "clusters/prod/us-west1/c2" # Each cluster will have its own promotion PR
-      -
-        - "clusters/prod/europe-west3/c2"
-      -
-        - "clusters/prod/europe-west4/c2"
-      -
-        - "clusters/prod/us-central1/c2"
-      -
-        - "clusters/prod/us-east4/c2"
-dryRunMode: true
-autoApprovePromotionPrs: true
-toggleCommitStatus:
-  override-terrafrom-pipeline: "github-action-terraform"
-```
-
-## Component Configuration
-
-This optional in-component configuration file allows overriding the general promotion configuration for a specific component.  
-File location is `COMPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:  
-`workspace/reloader/telefonistka.yaml` or `env/prod/us-central1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`  
-it includes only two optional configuration keys, `promotionTargetBlockList` and `promotionTargetAllowList`.  
-Both are matched against the target component path using Golang regex engine.
-
-If a target path matches an entry in `promotionTargetBlockList` it will not be promoted(regardless of `promotionTargetAllowList`).
-
-If  `promotionTargetAllowList` exist(non empty), only target paths that matches it will be promoted to(but the previous statement about `promotionTargetBlockList` still applies).
-
-```yaml
-promotionTargetBlockList:
-  - env/staging/europe-west4/c1.*
-  - env/prod/us-central1/c3/
-promotionTargetAllowList:
-  - env/prod/.*
-  - env/(dev|lab)/.*
-```
-
-## Metrics
-
-```text
-# HELP telefonistka_github_github_operations_total The total number of Github operations
-# TYPE telefonistka_github_github_operations_total counter
-telefonistka_github_github_operations_total{api_group="repos",api_path="",method="GET",repo_slug="shared/k8s-helmfile",status="200"} 8
-telefonistka_github_github_operations_total{api_group="repos",api_path="contents",method="GET",repo_slug="shared/k8s-helmfile",status="200"} 76
-telefonistka_github_github_operations_total{api_group="repos",api_path="contents",method="GET",repo_slug="shared/k8s-helmfile",status="404"} 13
-telefonistka_github_github_operations_total{api_group="repos",api_path="issues",method="POST",repo_slug="shared/k8s-helmfile",status="201"} 3
-telefonistka_github_github_operations_total{api_group="repos",api_path="pulls",method="GET",repo_slug="shared/k8s-helmfile",status="200"} 8
-# HELP telefonistka_github_github_rest_api_client_rate_limit The number of requests per hour the client is currently limited to
-# TYPE telefonistka_github_github_rest_api_client_rate_limit gauge
-telefonistka_github_github_rest_api_client_rate_limit 100000
-# HELP telefonistka_github_github_rest_api_client_rate_remaining The number of remaining requests the client can make this hour
-# TYPE telefonistka_github_github_rest_api_client_rate_remaining gauge
-telefonistka_github_github_rest_api_client_rate_remaining 99668
-# HELP telefonistka_webhook_server_webhook_hits_total The total number of validated webhook hits
-# TYPE telefonistka_webhook_server_webhook_hits_total counter
-telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
-```
+See [here](docs/observability.md)
 
 ## Development
 
@@ -179,42 +73,6 @@ telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 * See the URLs in ngrok command output.
 * Add a webhook to repo setting (don't forget the `/webhook` path in the URL).
 * Content type needs to be `application/json`, **currently** only PR events are needed
-
-## GitHub API Limit
-
-Check [GitHub docs](https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/rate-limits-for-github-apps) for details about the API rate limit.
-This is the section relevant for GitHub Application style installation of Telefonistka:
-
-> GitHub Apps making server-to-server requests use the installation's minimum rate limit of 5,000 requests per hour. If an application is installed on an > organization with more than 20 users, the application receives another 50 requests per hour for each user. Installations that have more than 20 repositories receive another 50 requests per hour for each repository. The maximum rate limit for an installation is 12,500 requests per hour.
-
-Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate_limit`  and `telefonistka_github_github_rest_api_client_rate_remaining` metrics
-
-## Installation
-
-The current version of the docs doesn't cover the details of running the Telefonistka instance beyond listing its [configuration options](#server-configuration) and noting that its `/webhook` endpoint needs to accessable from Github(Cloud or private instance)
-
-The Github side of the configuration could be done via a creation of an GitHub Application(recommended) or by configuring a webhook + github service account permission for each relevant repo.
-
-### GitHub Application
-
-* Create the application.
-  * Go to GitHub [apps page](https://github.com/settings/apps) under "Developer settings" and create a new app.
-  * Set the Webhooks URL to point to your running Telefonistka instance(remember the `/webhook` URL path), use HTTPS and set `Webhook secret` (pass  to instace via `GITHUB_WEBHOOK_SECRET` env var)
-  * Provide the new app with read&write `Repository permissions` for `Commit statuses`, `Contents`, `Issues` and `Pull requests`.
-  * Subscribe to `Issues` and `Pull request` events
-  * Generate a `Private key` and provide it you your instance with the  `GITHUB_APP_PRIVATE_KEY_PATH` env variable.
-  * Grab the `App ID` provide it you your instance with the `GITHUB_APP_ID` env variable.
-* For each relevant repo:
-  * Add repo to application configuration.
-  * Add `telefonistka.yaml` to repo root.
-
-### Webhook + service account
-
-* Create a github service account(basically a regualr account) and generate an API Token, provide token via `GITHUB_OAUTH_TOKEN` Env var
-* For each relevant repo:
-  * Add the Telefonistka API endpoints to the webhooks under the repo settings page.
-  * Ensure the service account has the relevant permission on the repo.
-  * Add `telefonistka.yaml` to repo root.
 
 ## Roadmap
 
