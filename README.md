@@ -191,7 +191,25 @@ Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate
 
 ## Installation
 
-TODO
+The Github side of the configuration could be done via a creation of an GitHub Application(recommded) or by configuring a webhook + github service account permission for each relevant repo.
+
+### GitHub Application 
+
+* create the application.
+* For each relevant repo:
+* * Add repo to application configuration.
+* * Add `telefonistka.yaml` to repo root.
+
+
+
+### Webhook + service account
+
+* Create a github service account(basically a regualr account) and generate an API Token
+* For each relevant repo:
+* * Add the Telefonistka API endpoints to the webhooks under the repo settings page.
+* * Ensure the service account has the relevant permission on the repo.
+* * Add `telefonistka.yaml` to repo root.
+
 
 ## Roadmap
 
