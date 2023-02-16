@@ -180,6 +180,15 @@ telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 * Add a webhook to repo setting (don't forget the `/webhook` path in the URL).
 * Content type needs to be `application/json`, **currently** only PR events are needed
 
+
+## GitHub API Limit
+Check [GitHub docs](https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/rate-limits-for-github-apps) for details about the API rate limit.
+This is the section relevant for GitHub Application style installation of Telefonistka:
+
+> GitHub Apps making server-to-server requests use the installation's minimum rate limit of 5,000 requests per hour. If an application is installed on an > organization with more than 20 users, the application receives another 50 requests per hour for each user. Installations that have more than 20 repositories receive another 50 requests per hour for each repository. The maximum rate limit for an installation is 12,500 requests per hour.
+
+Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate_limit`  and `telefonistka_github_github_rest_api_client_rate_remaining` metrics
+
 ## Installation
 
 TODO
