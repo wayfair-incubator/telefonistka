@@ -17,7 +17,7 @@ Providing reasonably flexible control over what is promoted to where and in what
 
 RY is the new DRY!
 
-Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments("dev"/"prod"/...) and failure domains("us-east-1"/"us-west-1"/...).
+Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...).
 
 If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or branches to provide said control.
 
@@ -29,7 +29,7 @@ This is where Telefonistka comes in.
 
 ## Notable Features
 
-* IaC technology agnostic - Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied "as is".
+* IaC technology agnostic - Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied between environments "as is".
 * Multi stage promotion schemes like  
 
   ```text
