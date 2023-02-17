@@ -19,7 +19,7 @@ RY is the new DRY!
 
 Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...).
 
-If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or branches to provide said control.
+If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or Git branches to provide said control.
 
 While using Git branches allows using git native tools for promoting changes(git merge) and inspecting drift(git diff) it quickly becomes cumbersome as the number of distinct environment/FDs grows. Additionally, syncing all your infrastructure from the main branch keeps the GitOps side of things more intuitive and make the promotion side more observable.
 
@@ -29,35 +29,52 @@ This is where Telefonistka comes in.
 
 ## Notable Features
 
-* IaC technology agnostic - Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied between environments "as is".
-* Multi stage promotion schemes like  
+### IaC stack agnostic
 
-  ```text
-  lab -> staging -> production
-  ```
+Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied between environments "as is".
 
-  or  
+### Multi stage promotion schemes
 
-  ```text
-  dev -> production-us-east-1 -> production-us-east-3 -> production-eu-east-1
-  ```  
+```text
+lab -> staging -> production
+```
+
+or  
+
+```text
+dev -> production-us-east-1 -> production-us-east-3 -> production-eu-east-1
+```  
   
-  Fan out, like:  
+Fan out, like:  
 
-  ```text
-  lab -> staging1 -->
-         staging2 -->  production
-         staging3 -->
-  ```
+```text
+lab -> staging1 -->
+       staging2 -->  production
+       staging3 -->
+```
 
-  Telefonistka annotates the PR with the historic "flow" of the promotion:
-  ![image](https://user-images.githubusercontent.com/1616153/219384172-27b960a8-afd1-42d1-8d5b-4b802134b851.png)
+Telefonistka annotates the PR with the historic "flow" of the promotion:
 
-* Control over grouping of targetPaths syncs in PRs ("Sync all dev clusters in one PR but open a dedicated PR for every production cluster" )
-* Optional in-component allow/block override list("This component should not be deployed to production" or "Deploy this only in the us-east-4 region")
-* Drift detection - warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
-  This is how this warnning looks in the PR:
-  ![image](https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png)
+<!-- markdownlint-disable MD033 -->
+<img src="https://user-images.githubusercontent.com/1616153/219384172-27b960a8-afd1-42d1-8d5b-4b802134b851.png"  width="50%" height="50%">
+<!-- markdownlint-enable MD033 -->
+
+### Control over grouping of targetPaths syncs in PRs
+
+e.g. "Sync all dev clusters in one PR but open a dedicated PR for every production cluster"
+
+### Optional in-component allow/block override list
+
+e.g. "This component should not be deployed to production" or "Deploy this only in the us-east-4 region"
+
+### Drift detection
+
+warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
+This is how this warnning looks in the PR:
+
+<!-- markdownlint-disable MD033 -->
+<img src="https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png"  width="50%" height="50%">
+<!-- markdownlint-enable MD033 -->
 
 ## Installation and Configuration
 
