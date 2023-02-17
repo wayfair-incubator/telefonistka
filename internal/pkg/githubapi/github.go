@@ -302,10 +302,6 @@ func CreateSyncCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github
 		Message: github.String("Syncing from " + sourcePath),
 		Parents: []*github.Commit{parentCommit},
 		Tree:    tree,
-		Author: &github.CommitAuthor{
-			Name:  github.String("Telefonistka GitOps Bot"),
-			Email: github.String("gitops-telefonistka@wayfair.com"), // TODO change these
-		},
 	}
 
 	commit, resp, err := ghPrClientDetails.Ghclient.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig)
