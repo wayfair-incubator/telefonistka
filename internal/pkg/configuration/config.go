@@ -14,10 +14,14 @@ type Condition struct {
 	PrHasLabels []string `yaml:"prHasLabels"`
 }
 
+type PromotionPr struct {
+	TargetPaths []string `yaml:"targetPaths"`
+}
+
 type PromotionPath struct {
-	Conditions  Condition  `yaml:"conditions"`
-	SourcePath  string     `yaml:"sourcePath"`
-	TargetPaths [][]string `yaml:"targetPaths"`
+	Conditions   Condition     `yaml:"conditions"`
+	SourcePath   string        `yaml:"sourcePath"`
+	PromotionPrs []PromotionPr `yaml:"promotionPrs"`
 }
 
 type Config struct {
@@ -25,12 +29,10 @@ type Config struct {
 	PromotionPaths []PromotionPath `yaml:"promotionPaths"`
 
 	// Generic configuration
-	PromtionPrLables           []string          `yaml:"promtionPRlables"`
-	PromotionBranchNameTemplte string            `yaml:"promotionBranchNameTemplte"`
-	PromtionPrBodyTemplate     string            `yaml:"promtionPrBodyTemplate"`
-	DryRunMode                 bool              `yaml:"dryRunMode"`
-	AutoApprovePromotionPrs    bool              `yaml:"autoApprovePromotionPrs"`
-	ToggleCommitStatus         map[string]string `yaml:"toggleCommitStatus"`
+	PromtionPrLables        []string          `yaml:"promtionPRlables"`
+	DryRunMode              bool              `yaml:"dryRunMode"`
+	AutoApprovePromotionPrs bool              `yaml:"autoApprovePromotionPrs"`
+	ToggleCommitStatus      map[string]string `yaml:"toggleCommitStatus"`
 }
 
 func GetInRepoConfig(ghPrClientDetails githubapi.GhPrClientDetails, defaultBranch string) (*Config, error) {

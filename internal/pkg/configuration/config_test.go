@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/google/go-github/v48/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	log "github.com/sirupsen/logrus"
@@ -48,5 +49,56 @@ func TestConfigurationParse(t *testing.T) {
 
 	if config.PromotionPaths == nil {
 		t.Fatalf("config is missing PromotionPaths, %v", config.PromotionPaths)
+	}
+
+	expectedConfig := &Config{
+		PromotionPaths: []PromotionPath{
+			PromotionPath{
+				SourcePath: "workspace/",
+				Conditions: Condition{
+					PrHasLabels: []string{
+						"some-label",
+					},
+				},
+				PromotionPrs: []PromotionPr{
+					PromotionPr{
+						TargetPaths: []string{
+							"env/staging/us-east4/c1/",
+						},
+					},
+					PromotionPr{
+
+						TargetPaths: []string{
+							"env/staging/europe-west4/c1/",
+						},
+					},
+				},
+			},
+			PromotionPath{
+				SourcePath: "env/staging/us-east4/c1/",
+				PromotionPrs: []PromotionPr{
+					PromotionPr{
+						TargetPaths: []string{
+							"env/prod/us-central1/c2/",
+						},
+					},
+				},
+			},
+			PromotionPath{
+				SourcePath: "env/prod/us-central1/c2/",
+				PromotionPrs: []PromotionPr{
+					PromotionPr{
+						TargetPaths: []string{
+							"env/prod/us-west1/c2/",
+							"env/prod/us-central1/c3/",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if diff := deep.Equal(expectedConfig, config); diff != nil {
+		t.Error(diff)
 	}
 }
