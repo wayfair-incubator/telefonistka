@@ -58,10 +58,12 @@ func TestGeneratePromotionConditionalPlan(t *testing.T) {
 						"non-existing-label", // Fake label not used in the PR struct
 					},
 				},
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/not-selected-1/",
-						"prod/not-selected-2/",
+						TargetPaths: []string{
+							"prod/not-selected-1/",
+							"prod/not-selected-2/",
+						},
 					},
 				},
 			},
@@ -72,19 +74,23 @@ func TestGeneratePromotionConditionalPlan(t *testing.T) {
 						"fast-promotion", // This label is used in the PR struct
 					},
 				},
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},
 			{
 				SourcePath: "prod/us-east-4/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/not-selected-3/", // Just a catch-all that shouldn't be used
-						"prod/not-selected-4/",
+						TargetPaths: []string{
+							"prod/not-selected-3/", // Just a catch-all that shouldn't be used
+							"prod/not-selected-4/",
+						},
 					},
 				},
 			},
@@ -133,19 +139,23 @@ func TestAggregatePromotionPlan(t *testing.T) {
 		PromotionPaths: []cfg.PromotionPath{
 			{
 				SourcePath: "dev/[^/]*/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},
 			{
 				SourcePath: "lab/[^/]*/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/us-west-1/",
-						"prod/us-east-1/",
+						TargetPaths: []string{
+							"prod/us-west-1/",
+							"prod/us-east-1/",
+						},
 					},
 				},
 			},
@@ -197,10 +207,12 @@ func TestGenerateSourceRegexPromotionPlan(t *testing.T) {
 		PromotionPaths: []cfg.PromotionPath{
 			{
 				SourcePath: "prod/[^/]*/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},
@@ -245,10 +257,12 @@ func TestGeneratePromotionPlan(t *testing.T) {
 		PromotionPaths: []cfg.PromotionPath{
 			{
 				SourcePath: "prod/us-east-4/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},
@@ -292,10 +306,12 @@ func TestGeneratePromotionPlanBlockList(t *testing.T) {
 		PromotionPaths: []cfg.PromotionPath{
 			{
 				SourcePath: "prod/us-east-4/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},
@@ -334,10 +350,12 @@ func TestGeneratePromotionPlanAllowList(t *testing.T) {
 		PromotionPaths: []cfg.PromotionPath{
 			{
 				SourcePath: "prod/us-east-4/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},
@@ -375,10 +393,12 @@ func TestGeneratePromotionPlanTwoComponents(t *testing.T) {
 		PromotionPaths: []cfg.PromotionPath{
 			{
 				SourcePath: "prod/us-east-4/",
-				TargetPaths: [][]string{
+				PromotionPrs: []cfg.PromotionPr{
 					{
-						"prod/eu-west-1/",
-						"prod/eu-east-1/",
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
 					},
 				},
 			},

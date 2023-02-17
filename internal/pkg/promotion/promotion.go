@@ -179,15 +179,15 @@ func GeneratePromotionPlan(ghPrClientDetails githubapi.GhPrClientDetails, config
 					}
 				}
 
-				for _, t := range configPromotionPath.TargetPaths {
-					sort.Strings(t)
+				for _, ppr := range configPromotionPath.PromotionPrs {
+					sort.Strings(ppr.TargetPaths)
 
-					mapKey := configPromotionPath.SourcePath + ">" + strings.Join(t, "|") // This key is used to aggregate the PR based on source and target combination
+					mapKey := configPromotionPath.SourcePath + ">" + strings.Join(ppr.TargetPaths, "|") // This key is used to aggregate the PR based on source and target combination
 					if entry, ok := promotions[mapKey]; !ok {
 						ghPrClientDetails.PrLogger.Debugf("Adding key %s", mapKey)
 						promotions[mapKey] = PromotionInstance{
 							Metadata: PromotionInstanceMetaData{
-								TargetPaths:                    t,
+								TargetPaths:                    ppr.TargetPaths,
 								SourcePath:                     componentToPromote.SourcePath,
 								ComponentNames:                 []string{componentToPromote.ComponentName},
 								PerComponentSkippedTargetPaths: map[string][]string{},
@@ -199,7 +199,7 @@ func GeneratePromotionPlan(ghPrClientDetails githubapi.GhPrClientDetails, config
 						promotions[mapKey] = entry
 					}
 
-					for _, indevidualPath := range t {
+					for _, indevidualPath := range ppr.TargetPaths {
 						if componentConfig != nil {
 							// BlockList supersedes Allowlist, if something matched there the entry is ignored regardless of allowlist
 							if componentConfig.PromotionTargetBlockList != nil {

@@ -3,17 +3,18 @@ promotionPaths:
     conditions:
       prHasLabels:
         - "some-label"
-    targetPaths:
-      -
+    promotionPrs:
+      - targetPaths:
         - "env/staging/us-east4/c1/"
+      - targetPaths:
         - "env/staging/europe-west4/c1/"
   - sourcePath: "env/staging/us-east4/c1/"
-    targetPaths:
-      -
+    promotionPrs:
+      - targetPaths:
         - "env/prod/us-central1/c2/"
   - sourcePath: "env/prod/us-central1/c2/"
-    targetPaths:
-      -
+    promotionPrs:
+      - targetPaths:
         - "env/prod/us-west1/c2/"
         - "env/prod/us-central1/c3/"
 
