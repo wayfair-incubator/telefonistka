@@ -55,7 +55,8 @@ Configuration keys:
 |`promotionPaths[0].sourcePath`| directory that holds components(subdirectories) to be synced, can include a regex.|
 |`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows. Flows are evatluated in order, first one to match is triggered.|
 |`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these lables the condition is considered fulfilled. Currently it's the only supported condition type|
-|`promotionPaths[0].targetPaths`|  Array of arrays(!!!) of target paths tied to the source path mentioned above, each top level element represent a PR that will be opened, so multiple target can be synced in a single PR|  
+|`promotionPaths[0].promotionPrs`|  Array of structs, each element represent a PR that will be opened when files are changed under `sourcePath`. Multiple elements means multiple PR will be opened|  
+|`promotionPaths[0].promotionPrs[0].targetPaths`| Array of strings, each element represent a directory to by synced from the changed component under  `sourcePath`. Multiple elements means multiple directories will be synced in a PR|
 |`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
 |`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
@@ -65,8 +66,8 @@ Example:
 ```yaml
 promotionPaths:
   - sourcePath: "workspace/"
-    targetPaths:
-      - 
+    promotionPrs:
+      - targetPaths:
         - "clusters/dev/us-east4/c2"
         - "clusters/lab/europe-west4/c1"
         - "clusters/staging/us-central1/c1"
@@ -76,25 +77,25 @@ promotionPaths:
     conditions:
       prHasLabels:
         - "quick_promotion" # This flow will run only if PR has "quick_promotion" label, see targetPaths below
-    targetPaths:
-      -
+    promotionPrs:
+      - targetPaths:
         - "clusters/prod/us-west1/c2" # First PR for only a single cluster
-      -
+      - targetPaths:
         - "clusters/prod/europe-west3/c2" # 2nd PR will sync all 4 remaining clusters
         - "clusters/prod/europe-west4/c2"
         - "clusters/prod/us-central1/c2"
         - "clusters/prod/us-east4/c2"
   - sourcePath: "clusters/staging/[^/]*/[^/]*" # This flow will run on PR without "quick_promotion" label
-    targetPaths:
-      -
+    promotionPrs:
+      - targetPaths:
         - "clusters/prod/us-west1/c2" # Each cluster will have its own promotion PR
-      -
+      - targetPaths:
         - "clusters/prod/europe-west3/c2"
-      -
+      - targetPaths:
         - "clusters/prod/europe-west4/c2"
-      -
+      - targetPaths:
         - "clusters/prod/us-central1/c2"
-      -
+      - targetPaths:
         - "clusters/prod/us-east4/c2"
 dryRunMode: true
 autoApprovePromotionPrs: true
