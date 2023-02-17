@@ -53,7 +53,7 @@ func TestConfigurationParse(t *testing.T) {
 
 	expectedConfig := &Config{
 		PromotionPaths: []PromotionPath{
-			PromotionPath{
+			{
 				SourcePath: "workspace/",
 				Conditions: Condition{
 					PrHasLabels: []string{
@@ -61,33 +61,32 @@ func TestConfigurationParse(t *testing.T) {
 					},
 				},
 				PromotionPrs: []PromotionPr{
-					PromotionPr{
+					{
 						TargetPaths: []string{
 							"env/staging/us-east4/c1/",
 						},
 					},
-					PromotionPr{
-
+					{
 						TargetPaths: []string{
 							"env/staging/europe-west4/c1/",
 						},
 					},
 				},
 			},
-			PromotionPath{
+			{
 				SourcePath: "env/staging/us-east4/c1/",
 				PromotionPrs: []PromotionPr{
-					PromotionPr{
+					{
 						TargetPaths: []string{
 							"env/prod/us-central1/c2/",
 						},
 					},
 				},
 			},
-			PromotionPath{
+			{
 				SourcePath: "env/prod/us-central1/c2/",
 				PromotionPrs: []PromotionPr{
-					PromotionPr{
+					{
 						TargetPaths: []string{
 							"env/prod/us-west1/c2/",
 							"env/prod/us-central1/c3/",
