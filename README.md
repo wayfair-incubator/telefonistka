@@ -30,7 +30,9 @@ This is where Telefonistka comes in.
 ## Notable Features
 
 ### IaC stack agnostic
+
 Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied between environments "as is".
+
 ### Multi stage promotion schemes
 
 ```text
@@ -53,17 +55,26 @@ lab -> staging1 -->
 
 Telefonistka annotates the PR with the historic "flow" of the promotion:
 
+<!-- markdownlint-disable MD033 -->
 <img src="https://user-images.githubusercontent.com/1616153/219384172-27b960a8-afd1-42d1-8d5b-4b802134b851.png"  width="50%" height="50%">
+<!-- markdownlint-enable MD033 -->
 
 ### Control over grouping of targetPaths syncs in PRs
+
 e.g. "Sync all dev clusters in one PR but open a dedicated PR for every production cluster"
+
 ### Optional in-component allow/block override list
+
 e.g. "This component should not be deployed to production" or "Deploy this only in the us-east-4 region"
+
 ### Drift detection
+
 warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
 This is how this warnning looks in the PR:
 
+<!-- markdownlint-disable MD033 -->
 <img src="https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png"  width="50%" height="50%">
+<!-- markdownlint-enable MD033 -->
 
 ## Installation and Configuration
 
