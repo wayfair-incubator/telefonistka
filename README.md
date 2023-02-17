@@ -19,7 +19,7 @@ RY is the new DRY!
 
 Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...).
 
-If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or branches to provide said control.
+If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or Git branches to provide said control.
 
 While using Git branches allows using git native tools for promoting changes(git merge) and inspecting drift(git diff) it quickly becomes cumbersome as the number of distinct environment/FDs grows. Additionally, syncing all your infrastructure from the main branch keeps the GitOps side of things more intuitive and make the promotion side more observable.
 
