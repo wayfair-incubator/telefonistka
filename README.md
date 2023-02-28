@@ -5,7 +5,7 @@
 
 <!-- markdownlint-enable MD033 -->
 
-Telefonistka is a Github webhook server/Bot that facilitate change promotion across environments/failure domains in IaC GitOps repos.
+Telefonistka is a Github webhook server/Bot that facilitate change promotion across environments/failure domains in Infrastructure as Code GitOps repos.
 
 It assumes the [the repeatable part if your infrastucture is modeled in folders](#modeling-environmentsfailure-domains-in-an-iac-gitops-repo)
 
@@ -13,25 +13,43 @@ Based on configuration in the IaC repo, the bot will open Pull Requests that syn
 
 Providing reasonably flexible control over what is promoted to where and in what order.
 
-## Modeling environments/failure domains in an IaC GitOps repo
+## Modeling environments/failure-domains in an IaC GitOps repo
 
 RY is the new DRY!
 
-Regardless of the tool you use to describe your infrastructure, or if your IaC repo includes code or just references to some versioned artifacts like helm charts/TF modules, you need a way to control how changes are made across environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...).
+In GitOps IaC implementations, different environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...) must be represented in distinct files, folders, Git branches or even repositories to allow gradual and controlled rollout of changes across said environments/failure domains.
 
-If changes are applied immediately when they are committed to the repo, this means these  environments and failure domains need to be represented as different folders or Git branches to provide said control.
+At Wayfair's Kubernetes team we choose "The Folders" approach, more about this choice [here](docs/modeling_environments_in_gitops_repo.md).
 
-While using Git branches allows using git native tools for promoting changes(git merge) and inspecting drift(git diff) it quickly becomes cumbersome as the number of distinct environment/FDs grows. Additionally, syncing all your infrastructure from the main branch keeps the GitOps side of things more intuitive and make the promotion side more observable.
+Specifically, we choose the following scheme to represent all the Infrastructure components running in our Kubernetes clusters:
+`clusters`/[environment]/[cloud region]/[cluster identifier]/[component name]
+for  example:
+`clusters/staging/us-central1/c2/prometheus/`
+`clusters/staging/us-central1/c2/nginx-ingress/`
+`clusters/prod/us-central1/c2/prometheus/`
+`clusters/prod/us-central1/c2/nginx-ingress/`
+`clusters/prod/europe-west4/c2/prometheus/`
+`clusters/prod/europe-west4/c2/nginx-ingress/`
 
-This leaves us with "the folders" approach, while gaining simplicity and observability it would requires us to manually copy files around, (r)sync directories or even worse - manually make the same change in multiple files.
+While this approach provide multiple benefits it does mean the user is expected to make changes in multiple files and folder in order to apply a single change to multiple environments/FDs.
+
+Manually syncing those files is time consuming, error prone and generally not fun. And in the long run, undesired drift between those environments/FDs is almost guaranteed to accumulate as humans do that thing where they fail to be perfect at what they do.
 
 This is where Telefonistka comes in.
+
+Telefonistka will automagically create Pull Requests that "sync" our changes to the right folder or folders, enabling the usage of the familiar PR functionality to control promotions while avoiding the toil related to manually syncing directories and checking for environments/FDs drift.
 
 ## Notable Features
 
 ### IaC stack agnostic
 
 Terraform, Helmfile, ArgoCD whatever, as long as environments and sites are modeled as folders and components are copied between environments "as is".
+
+### Unopinionated directory structure
+
+The [in-configuration file](docs/installation.md#repo-configuration) is flexible and even has some regex support.
+
+The project goal is support any reasonable setup and we'll try to address unsupported setups.
 
 ### Multi stage promotion schemes
 
