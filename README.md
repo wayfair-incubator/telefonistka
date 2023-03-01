@@ -19,7 +19,7 @@ RY is the new DRY!
 
 In GitOps IaC implementations, different environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...) must be represented in distinct files, folders, Git branches or even repositories to allow gradual and controlled rollout of changes across said environments/failure domains.
 
-At Wayfair's Kubernetes team we choose "The Folders" approach, more about this choice [here](docs/modeling_environments_in_gitops_repo.md).
+At Wayfair's Kubernetes team we choose "The Folders" approach, more about other choices [here](docs/modeling_environments_in_gitops_repo.md).
 
 Specifically, we choose the following scheme to represent all the Infrastructure components running in our Kubernetes clusters:
 `clusters`/[environment]/[cloud region]/[cluster identifier]/[component name]

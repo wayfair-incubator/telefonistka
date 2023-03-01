@@ -1,5 +1,8 @@
 # Modeling Distinct Environments/Failure Domains In Gitops Repo
 
+This document give a short overview on the available methods to model multiple environments/failure domains in a GitOps IaC repo.
+More thorough articles can be found in the  [external resources section](#external-resources).
+
 ## Terminology
 
 `Environment(env)`: a distinct part of your Infrastructure that is used to run your services and cloud resources to support some goal. For example, `Production` is used to serve actual customers, `Staging` could be used to test how new version of services interact with the rest of the platfrom, and `Lab` is where new and untested changes are initial deployed to.
@@ -10,30 +13,35 @@ Smaller or younger companies might not have such distinct failure domains as the
 
 In some cases I will use the term `envs` to refer to both Environments and Failure domains as from the perspective of the IaC tool, the GitOps pipeline/controller and Telefonistka they are the same.
 
-## Methods
+`Drift`: in this context, drift describes an unwanted/unintended difference between environment/FDs that is present in the Git state, for example a change that was made to the `Staging` environment but wasn't promoited to `Prod`
 
-### Single instance 
+## Available Methods
+
+### Single instance
 
 All envs are controlled from a single file/folders, a single git commit change them all *at once*.
-Even if you have per env/FD paramater override files(e.g. Helm value files/Terraform `.tfvars`), any change to the shared code that interacts with these files will be applied the all envs at once(GitOps!), somewhat negating their benefits 
+Even if you have per env/FD paramater override files(e.g. Helm value files/Terraform `.tfvars`), any change to the shared code(or a reference to a versioned artifact hosting the code) will be applied the all envs at once(GitOps!), somewhat negating the benefits of maintaining multiple envs.
 
-### Branch per Env/FD
+### Git Branch per Env/FD
 
-While using Git branches allows using git native tools for promoting changes(git merge) and inspecting drift(git diff) it quickly becomes cumbersome as the number of distinct environment/FDs grows. Additionally, syncing all your infrastructure from the main branch keeps the GitOps side of things more intuitive and make the promotion side more observable.
+This allows using git native tools for promoting changes(`git merge`) and inspecting drift(`git diff`) but it quickly becomes cumbersome as the number of distinct environment/FDs grows. Additionally, syncing all your infrastructure from the main branch keeps the GitOps side of things more intuitive and make the promotion side more observable.
 
 ### Directory per Env/FD
 
-This leaves us with "the multiple folders" approach, while gaining simplicity and observability, we are no longer able to use Git native tools to promote our changes across environments - it would requires us to manually copy files around, (r)sync directories or even worse - manually make the same change in multiple files.
+This is our chosen approach and what Telefonistka currently supports.
+
+See [section in README.md](README.md#modeling-environments/failure-domains-in-an-iac-gitops-repo)
 
 ### Git Repo per Env/FD
 
-
+This is the most complex but flexible solution, providing the strongest isolation in permission and policy enforcement.
+This feels a bit too much considering the added complexity, especially if the number of envs is high or dynamic.
+Telefonistka doesn't support this model currently.
 
 ## External resources
 
+[Stop Using Branches for Deploying to Different GitOps Environments](https://codefresh.io/blog/stop-using-branches-deploying-different-gitops-environments/)
 
-https://codefresh.io/blog/stop-using-branches-deploying-different-gitops-environments/
+[How to Model Your Gitops Environments and Promote Releases between Them](https://codefresh.io/blog/how-to-model-your-gitops-environments-and-promote-releases-between-them/)
 
-https://codefresh.io/blog/how-to-model-your-gitops-environments-and-promote-releases-between-them/
-
-https://www.sokube.io/en/blog/promoting-changes-and-releases-with-gitops
+[Promoting changes and releases with GitOps](https://www.sokube.io/en/blog/promoting-changes-and-releases-with-gitops)
