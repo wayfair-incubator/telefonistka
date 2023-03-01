@@ -30,7 +30,7 @@ This allows using git native tools for promoting changes(`git merge`) and inspec
 
 This is our chosen approach and what Telefonistka currently supports.
 
-See [section in README.md](README.md#modeling-environments/failure-domains-in-an-iac-gitops-repo)
+See [section in README.md](../README.md#modeling-environmentsfailure-domains-in-an-iac-gitops-repo)
 
 ### Git Repo per Env/FD
 
