@@ -77,17 +77,21 @@ Telefonistka annotates the PR with the historic "flow" of the promotion:
 <img src="https://user-images.githubusercontent.com/1616153/219384172-27b960a8-afd1-42d1-8d5b-4b802134b851.png"  width="50%" height="50%">
 <!-- markdownlint-enable MD033 -->
 
-### Control over grouping of targetPaths syncs in PRs
+### Control granularity of promotion PRs
+
+Allows separating promotions into a separate PRs per environment/failure domain or group some/all of them.
 
 e.g. "Sync all dev clusters in one PR but open a dedicated PR for every production cluster"
 
-### Optional in-component allow/block override list
+### Optional per-component allow/block override list
 
-e.g. "This component should not be deployed to production" or "Deploy this only in the us-east-4 region"
+Allows overriding the general(per-repo) promotion policy on a per component level.
 
-### Drift detection
+e.g. "This component should not be deployed to production" or "Promote this only to the us-east-4 region"
 
-warns user on "unsynced" environment on open PRs ("Staging the Production are not synced, these are the differences")
+### Drift detection and warning
+
+Warns user on [drift between environment/failure domains](docs/modeling_environments_in_gitops_repo.md#terminology) on open PRs ("Staging the Production are not synced, these are the differences")
 This is how this warnning looks in the PR:
 
 <!-- markdownlint-disable MD033 -->

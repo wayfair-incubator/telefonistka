@@ -33,7 +33,7 @@ var (
 
 	GithubOpsCountVec = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name:      "github_operations_total",
-		Help:      "The total number of Github operations",
+		Help:      "The total number of Github API operations",
 		Namespace: "telefonistka",
 		Subsystem: "github",
 	}, []string{"api_group", "api_path", "repo_slug", "status", "method"})

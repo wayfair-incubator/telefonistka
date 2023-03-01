@@ -123,3 +123,15 @@ promotionTargetAllowList:
   - env/prod/.*
   - env/(dev|lab)/.*
 ```
+
+## GitHub API Limit
+
+Telefonistka doesn't doesn't use GitHub git protocol but only use the REST and GraphQL APIs, this can make it a somewhat "heavy" user.
+But in our experience a team of ~20 engineers pushing ~ 30 PRs a day didn't come close to depleting the Telefonistka app API quota.
+
+Check [GitHub docs](https://docs.github.com/en/apps/creating-github-apps/creating-github-apps/rate-limits-for-github-apps) for details about the API rate limit.
+This is the section relevant for GitHub Application style installation of Telefonistka:
+
+> GitHub Apps making server-to-server requests use the installation's minimum rate limit of 5,000 requests per hour. If an application is installed on an > organization with more than 20 users, the application receives another 50 requests per hour for each user. Installations that have more than 20 repositories receive another 50 requests per hour for each repository. The maximum rate limit for an installation is 12,500 requests per hour.
+
+Rate limit status is tracked by `telefonistka_github_github_rest_api_client_rate_limit`  and `telefonistka_github_github_rest_api_client_rate_remaining` [metrics](docs/observability.md#metrics)
