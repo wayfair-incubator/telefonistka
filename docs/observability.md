@@ -8,6 +8,7 @@
 |telefonistka_webhook_server_webhook_hits_total|counter|The total number of validated webhook hits|`parsing`|
 
 Example metrics snippet:
+
 ```text
 # HELP telefonistka_github_github_operations_total The total number of Github operations
 # TYPE telefonistka_github_github_operations_total counter
@@ -26,4 +27,3 @@ telefonistka_github_github_rest_api_client_rate_remaining 99668
 # TYPE telefonistka_webhook_server_webhook_hits_total counter
 telefonistka_webhook_server_webhook_hits_total{parsing="successful"} 8
 ```
-
