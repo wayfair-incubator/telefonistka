@@ -22,14 +22,18 @@ In GitOps IaC implementations, different environments(`dev`/`prod`/...) and fail
 At Wayfair's Kubernetes team we choose "The Folders" approach, more about other choices [here](docs/modeling_environments_in_gitops_repo.md).
 
 Specifically, we choose the following scheme to represent all the Infrastructure components running in our Kubernetes clusters:
-`clusters`/[environment]/[cloud region]/[cluster identifier]/[component name]
+`clusters`/`[environment]`/`[cloud region]`/`[cluster identifier]`/`[component name]`
+
 for  example:
-`clusters/staging/us-central1/c2/prometheus/`
-`clusters/staging/us-central1/c2/nginx-ingress/`
-`clusters/prod/us-central1/c2/prometheus/`
-`clusters/prod/us-central1/c2/nginx-ingress/`
-`clusters/prod/europe-west4/c2/prometheus/`
-`clusters/prod/europe-west4/c2/nginx-ingress/`
+
+```text
+clusters/staging/us-central1/c2/prometheus/
+clusters/staging/us-central1/c2/nginx-ingress/
+clusters/prod/us-central1/c2/prometheus/
+clusters/prod/us-central1/c2/nginx-ingress/
+clusters/prod/europe-west4/c2/prometheus/
+clusters/prod/europe-west4/c2/nginx-ingress/
+```
 
 While this approach provide multiple benefits it does mean the user is expected to make changes in multiple files and folder in order to apply a single change to multiple environments/FDs.
 
