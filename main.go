@@ -116,8 +116,8 @@ func createGithubRestClient(tokenEnvVarName string, githubRestAltURL string, ctx
 	return client
 }
 
-func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubGraphqlAltURL string, ctx context.Context) *githubv4.Client {
-	httpClient, _ := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubGraphqlAltURL, ctx)
+func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
+	httpClient, _ := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubRestAltURL, ctx)
 	var client *githubv4.Client
 	if githubGraphqlAltURL != "" {
 		client = githubv4.NewEnterpriseClient(githubGraphqlAltURL, httpClient)
@@ -190,16 +190,17 @@ func main() {
 	var githubRestAltURL string
 	var githubGraphqlAltURL string
 	if githubHost != "" {
-		githubRestAltURL = githubHost + "/api/v3"
-		githubGraphqlAltURL = githubHost + "api/graphql"
+		githubRestAltURL = "https://" + githubHost + "/api/v3"
+		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
 		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
+		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
 	} else {
 		log.Infof("Using public Github API endpoint")
 	}
 	if githubAppPrivateKeyPath != "" {
 		log.Infoln("Using GH app auth")
 		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubRestAltURL, ctx)
-		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubGraphqlAltURL, ctx)
+		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubGraphqlAltURL, githubRestAltURL, ctx)
 	} else {
 		mainGithubClient = createGithubRestClient("GITHUB_OAUTH_TOKEN", githubRestAltURL, ctx)
 		githubGraphQlClient = createGithubGraphQlClient("GITHUB_OAUTH_TOKEN", githubGraphqlAltURL)
