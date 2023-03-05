@@ -1,4 +1,4 @@
-package promotion
+package githubapi
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
-	githubapi "github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
 )
 
 func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, expectedPromotion map[string]PromotionInstance, mockedHTTPClient *http.Client) {
@@ -19,7 +18,7 @@ func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, expectedP
 	ghclient := github.NewClient(mockedHTTPClient)
 	labelName := "fast-promotion"
 
-	ghPrClientDetails := githubapi.GhPrClientDetails{
+	ghPrClientDetails := GhPrClientDetails{
 		Ctx:      ctx,
 		Ghclient: ghclient,
 		Owner:    "AnOwner",
