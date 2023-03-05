@@ -5,11 +5,11 @@
 
 <!-- markdownlint-enable MD033 -->
 
-Telefonistka is a Github webhook server/Bot that facilitate change promotion across environments/failure domains in Infrastructure as Code GitOps repos.
+Telefonistka is a Github webhook server/Bot that facilitates change promotion across environments/failure domains in Infrastructure as Code(IaC) GitOps repos.
 
-It assumes the [the repeatable part if your infrastucture is modeled in folders](#modeling-environmentsfailure-domains-in-an-iac-gitops-repo)
+It assumes the [repeatable part of your infrastucture is modeled in folders](#modeling-environmentsfailure-domains-in-an-iac-gitops-repo)
 
-Based on configuration in the IaC repo, the bot will open Pull Requests that syncs components from "sourcePath"s to "targetPaths".
+Based on configuration in the IaC repo, the bot will open pull requests that sync components from "sourcePaths" to "targetPaths".
 
 Providing reasonably flexible control over what is promoted to where and in what order.
 
@@ -19,7 +19,7 @@ RY is the new DRY!
 
 In GitOps IaC implementations, different environments(`dev`/`prod`/...) and failure domains(`us-east-1`/`us-west-1`/...) must be represented in distinct files, folders, Git branches or even repositories to allow gradual and controlled rollout of changes across said environments/failure domains.
 
-At Wayfair's Kubernetes team we choose "The Folders" approach, more about other choices [here](docs/modeling_environments_in_gitops_repo.md).
+At Wayfair's Kubernetes team we choose the "folders" approach, more about other choices [here](docs/modeling_environments_in_gitops_repo.md).
 
 Specifically, we choose the following scheme to represent all the Infrastructure components running in our Kubernetes clusters:
 `clusters`/`[environment]`/`[cloud region]`/`[cluster identifier]`/`[component name]`
@@ -35,13 +35,13 @@ clusters/prod/europe-west4/c2/prometheus/
 clusters/prod/europe-west4/c2/nginx-ingress/
 ```
 
-While this approach provide multiple benefits it does mean the user is expected to make changes in multiple files and folder in order to apply a single change to multiple environments/FDs.
+While this approach provides multiple benefits it does mean the user is expected to make changes in multiple files and folders in order to apply a single change to multiple environments/FDs.
 
 Manually syncing those files is time consuming, error prone and generally not fun. And in the long run, undesired drift between those environments/FDs is almost guaranteed to accumulate as humans do that thing where they fail to be perfect at what they do.
 
 This is where Telefonistka comes in.
 
-Telefonistka will automagically create Pull Requests that "sync" our changes to the right folder or folders, enabling the usage of the familiar PR functionality to control promotions while avoiding the toil related to manually syncing directories and checking for environments/FDs drift.
+Telefonistka will automagically create pull requests that "sync" our changes to the right folder or folders, enabling the usage of the familiar PR functionality to control promotions while avoiding the toil related to manually syncing directories and checking for environments/FDs drift.
 
 ## Notable Features
 
@@ -95,8 +95,8 @@ e.g. "This component should not be deployed to production" or "Promote this only
 
 ### Drift detection and warning
 
-Warns user on [drift between environment/failure domains](docs/modeling_environments_in_gitops_repo.md#terminology) on open PRs ("Staging the Production are not synced, these are the differences")
-This is how this warnning looks in the PR:
+Warns user on [drift between environment/failure domains](docs/modeling_environments_in_gitops_repo.md#terminology) on open PRs ("Staging and Production are not synced, these are the differences")
+This is how this warning looks in the PR:
 
 <!-- markdownlint-disable MD033 -->
 <img src="https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png"  width="50%" height="50%">
