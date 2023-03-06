@@ -1,16 +1,21 @@
 package githubapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/google/go-github/v48/github"
+	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
+	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 )
 
@@ -52,6 +57,216 @@ func (pm prMetadata) serialize() (string, error) {
 	// return "", err
 	// }
 	return base64.StdEncoding.EncodeToString(pmJson), nil
+}
+
+func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context) {
+	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
+	if err != nil {
+		log.Errorf("could not parse webhook: err=%s\n", err)
+		prom.InstrumentWebhookHit("parsing_failed")
+		return
+	}
+	prom.InstrumentWebhookHit("successful")
+
+	switch eventPayload := eventPayloadInterface.(type) {
+	case *github.PushEvent:
+		// this is a commit push, do something with it?
+		log.Infoln("is PushEvent")
+	case *github.PullRequestEvent:
+		// this is a pull request, do something with it
+		log.Infoln("is PullRequestEvent")
+
+		prLogger := log.WithFields(log.Fields{
+			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
+			"prNumber": *eventPayload.PullRequest.Number,
+		})
+
+		ghPrClientDetails := GhPrClientDetails{
+			Ctx:      ctx,
+			Ghclient: mainGithubClient,
+			Labels:   eventPayload.PullRequest.Labels,
+			Owner:    *eventPayload.Repo.Owner.Login,
+			Repo:     *eventPayload.Repo.Name,
+			PrNumber: *eventPayload.PullRequest.Number,
+			Ref:      *eventPayload.PullRequest.Head.Ref,
+			PrAuthor: *eventPayload.PullRequest.User.Login,
+			PrLogger: prLogger,
+			PrSHA:    *eventPayload.PullRequest.Head.SHA,
+		}
+
+		prMetadataRegex := regexp.MustCompile(`<!--\|.*\|(.*)\|-->`)
+		serializedPrMetadata := prMetadataRegex.FindStringSubmatch(eventPayload.PullRequest.GetBody())
+		if len(serializedPrMetadata) == 2 {
+			if serializedPrMetadata[1] != "" {
+				ghPrClientDetails.PrLogger.Info("Found PR metadata")
+				err = ghPrClientDetails.PrMetadata.DeSerialize(serializedPrMetadata[1])
+				if err != nil {
+					ghPrClientDetails.PrLogger.Errorf("Fail to parser PR metadata %v", err)
+				}
+			}
+		}
+
+		SetCommitStatus(ghPrClientDetails, "pending")
+		var prHandleError error
+
+		if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
+			err := handleMergedPrEvent(ghPrClientDetails, prApproverGithubClient)
+			if err != nil {
+				prHandleError = err
+				ghPrClientDetails.PrLogger.Errorf("Handling of merged PR failed: err=%s\n", err)
+			}
+		} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
+			err = MimizeStalePrComments(ghPrClientDetails, githubGraphQlClient)
+			if err != nil {
+				prHandleError = err
+				log.Errorf("Failed to minimize stale comments: err=%s\n", err)
+			}
+			ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
+			err := DetectDrift(ghPrClientDetails)
+			if err != nil {
+				prHandleError = err
+				ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
+			}
+		} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
+			ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
+			defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+			config, _ := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+			promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
+			commentPlanInPR(ghPrClientDetails, promotions)
+		}
+
+		if prHandleError == nil {
+			SetCommitStatus(ghPrClientDetails, "success")
+		} else {
+			SetCommitStatus(ghPrClientDetails, "error")
+		}
+
+	case *github.IssueCommentEvent:
+		log.Infof("Actionable event type %s\n", eventType)
+		prLogger := log.WithFields(log.Fields{
+			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
+			"prNumber": *eventPayload.Issue.Number,
+		})
+		ghPrClientDetails := GhPrClientDetails{
+			Ctx:      ctx,
+			Ghclient: mainGithubClient,
+			Owner:    *eventPayload.Repo.Owner.Login,
+			Repo:     *eventPayload.Repo.Name,
+			PrNumber: *eventPayload.Issue.Number,
+			PrAuthor: *eventPayload.Issue.User.Login,
+			PrLogger: prLogger,
+		}
+
+		_ = handlecommentPrEvent(ghPrClientDetails, eventPayload)
+
+	default:
+		log.Infof("Non actionable event type %s\n", eventType)
+		return
+	}
+}
+
+func handlecommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueCommentEvent) error {
+	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+	if err != nil {
+		_ = ghPrClientDetails.CommentOnPr(fmt.Sprintf("Failed to get configuration\n```\n%s\n```\n", err))
+		return err
+	}
+	// Comment events doesn't have Ref/SHA in payload, enriching the object:
+	_, _ = ghPrClientDetails.GetRef()
+	_, _ = ghPrClientDetails.GetSHA()
+	for commentSubstring, commitStatusContext := range config.ToggleCommitStatus {
+		if strings.Contains(*ce.Comment.Body, "/"+commentSubstring) {
+			err := ghPrClientDetails.ToggleCommitStatus(commitStatusContext, *ce.Sender.Name)
+			if err != nil {
+				ghPrClientDetails.PrLogger.Errorf("Failed to toggle %s context,  err=%v", commitStatusContext, err)
+				break
+			} else {
+				ghPrClientDetails.PrLogger.Infof("Toggled %s status", commitStatusContext)
+			}
+		}
+	}
+	return err
+}
+
+func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]PromotionInstance) {
+	var templateOutput bytes.Buffer
+	dryRunMsgTemplate, err := template.New("dryRunMsg").ParseFiles("templates/dry-run-pr-comment.gotmpl")
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
+	}
+	err = dryRunMsgTemplate.ExecuteTemplate(&templateOutput, "dryRunMsg", promotions)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to execute template: err=%v", err)
+	}
+	// templateOutputString := templateOutput.String()
+	err = ghPrClientDetails.CommentOnPr(templateOutput.String())
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to comment plan in PR: err=%v", err)
+	}
+}
+
+func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubClient *github.Client) error {
+	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+	if err != nil {
+		_ = ghPrClientDetails.CommentOnPr(fmt.Sprintf("Failed to get configuration\n```\n%s\n```\n", err))
+		return err
+	}
+
+	// configBranch = default branch as the PR is closed at this and its branch deleted.
+	// If we'l ever want to generate this plan on an unmerged PR the PR branch (ghPrClientDetails.Ref) should be used
+	promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
+	// log.Infof("%+v", promotions)
+	if !config.DryRunMode {
+		for _, promotion := range promotions {
+			// TODO this whole part shouldn't be in main, but I need to refactor some circular dep's
+
+			// because I use GitHub low level (tree) API the order of operation is somewhat different compared to regular git CLI flow:
+			// I create the sync commit against HEAD, create a new branch based on that commit and finally open a PR based on that branch
+
+			var treeEntries []*github.TreeEntry
+			for trgt, src := range promotion.ComputedSyncPaths {
+				err = GenerateTreeEntiesForCommit(&treeEntries, ghPrClientDetails, src, trgt, defaultBranch)
+				if err != nil {
+					ghPrClientDetails.PrLogger.Errorf("Failed to generate treeEntries for %s > %s,  err=%v", src, trgt, err)
+				} else {
+					ghPrClientDetails.PrLogger.Debugf("Generated treeEntries for %s > %s", src, trgt)
+				}
+			}
+
+			if len(treeEntries) < 1 {
+				ghPrClientDetails.PrLogger.Infof("TreeEntries list is empty")
+				continue
+			}
+
+			commit, err := CreateSyncCommit(ghPrClientDetails, treeEntries, defaultBranch, promotion.Metadata.SourcePath)
+			if err != nil {
+				ghPrClientDetails.PrLogger.Errorf("Commit creation failed: err=%v", err)
+				return err
+			}
+			newBranchRef, err := CreateBranch(ghPrClientDetails, commit, promotion.Metadata.TargetPaths)
+			if err != nil {
+				ghPrClientDetails.PrLogger.Errorf("Branch creation failed: err=%v", err)
+				return err
+			}
+			pull, err := CreatePrObject(ghPrClientDetails, newBranchRef, promotion.Metadata.SourcePath, promotion.Metadata.TargetPaths, promotion.Metadata.ComponentNames, defaultBranch)
+			if err != nil {
+				ghPrClientDetails.PrLogger.Errorf("PR opening failed: err=%v", err)
+				return err
+			}
+			if config.AutoApprovePromotionPrs {
+				err := ApprovePr(prApproverGithubClient, ghPrClientDetails, pull.Number)
+				if err != nil {
+					ghPrClientDetails.PrLogger.Errorf("PR auto approval failed: err=%v", err)
+					return err
+				}
+			}
+		}
+	} else {
+		commentPlanInPR(ghPrClientDetails, promotions)
+	}
+	return nil
 }
 
 func (pm *prMetadata) DeSerialize(s string) error {
@@ -453,6 +668,19 @@ func ApprovePr(approverClient *github.Client, ghPrClientDetails GhPrClientDetail
 	}
 
 	return nil
+}
+
+func GetInRepoConfig(ghPrClientDetails GhPrClientDetails, defaultBranch string) (*cfg.Config, error) {
+	inRepoConfigFileContentString, err := GetFileContent(ghPrClientDetails, defaultBranch, "telefonistka.yaml")
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Could not get in-repo configuration: err=%s\n", err)
+		return nil, err
+	}
+	c, err := cfg.ParseConfigFromYaml(inRepoConfigFileContentString)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to parse configuration: err=%s\n", err)
+	}
+	return c, err
 }
 
 func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath string) (string, error) {

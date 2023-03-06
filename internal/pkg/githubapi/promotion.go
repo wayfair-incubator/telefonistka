@@ -1,4 +1,4 @@
-package promotion
+package githubapi
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	"github.com/google/go-github/v48/github"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
-	githubapi "github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -51,10 +50,10 @@ func contains(s []string, str string) bool {
 	return false
 }
 
-func DetectDrift(ghPrClientDetails githubapi.GhPrClientDetails) error {
+func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 	diffOutputMap := make(map[string]string)
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
-	config, err := cfg.GetInRepoConfig(ghPrClientDetails, defaultBranch)
+	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {
 		_ = ghPrClientDetails.CommentOnPr(fmt.Sprintf("Failed to get configuration\n```\n%s\n```\n", err))
 		return err
@@ -65,7 +64,7 @@ func DetectDrift(ghPrClientDetails githubapi.GhPrClientDetails) error {
 	for _, promotion := range promotions {
 		ghPrClientDetails.PrLogger.Debugf("Checking drift for %s", promotion.Metadata.SourcePath)
 		for trgt, src := range promotion.ComputedSyncPaths {
-			hasDiff, diffOutput, _ := githubapi.CompareRepoDirectories(ghPrClientDetails, src, trgt, defaultBranch)
+			hasDiff, diffOutput, _ := CompareRepoDirectories(ghPrClientDetails, src, trgt, defaultBranch)
 			if hasDiff {
 				mapKey := fmt.Sprintf("`%s` ↔️  `%s`", src, trgt)
 				diffOutputMap[mapKey] = diffOutput
@@ -97,7 +96,7 @@ func DetectDrift(ghPrClientDetails githubapi.GhPrClientDetails) error {
 	return nil
 }
 
-func getComponentConfig(ghPrClientDetails githubapi.GhPrClientDetails, componentPath string, branch string) (*cfg.ComponentConfig, error) {
+func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath string, branch string) (*cfg.ComponentConfig, error) {
 	componentConfig := &cfg.ComponentConfig{}
 	rGetContentOps := &github.RepositoryContentGetOptions{Ref: branch}
 	componentConfigFileContent, _, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, componentPath+"/telefonistka.yaml", rGetContentOps)
@@ -118,7 +117,7 @@ func getComponentConfig(ghPrClientDetails githubapi.GhPrClientDetails, component
 	return componentConfig, nil
 }
 
-func GeneratePromotionPlan(ghPrClientDetails githubapi.GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
+func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
 	promotions := make(map[string]PromotionInstance)
 
 	prFiles, resp, err := ghPrClientDetails.Ghclient.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
