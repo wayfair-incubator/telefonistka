@@ -25,7 +25,8 @@ var reverseCmd = &cobra.Command{
 	},
 }
 
-func init() {
+// This is still(https://github.com/spf13/cobra/issues/1862) the documented way to use cobra
+func init() { //nolint:gochecknoinits
 	rootCmd.AddCommand(reverseCmd)
 }
 
