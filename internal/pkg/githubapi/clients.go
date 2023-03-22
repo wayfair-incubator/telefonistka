@@ -3,6 +3,8 @@ package githubapi
 import (
 	"context"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
@@ -11,6 +13,22 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func getCrucialEnv(key string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	log.Fatalf("%s environment variable is required", key)
+	os.Exit(3)
+	return ""
+}
 
 func createGithubInstalltionHttpClient(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) (*http.Client, error) {
 	// GitHib app installation auth works as follows:
@@ -69,7 +87,7 @@ func createGithubInstalltionHttpClient(githubAppPrivateKeyPath string, githubApp
 	return oauth2.NewClient(context.Background(), ts), nil
 }
 
-func CreateGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) *github.Client {
+func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) *github.Client {
 	oauthClient, err := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
 	var finalClient *github.Client
 	if githubRestAltURL != "" {
@@ -87,7 +105,7 @@ func CreateGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64
 	return finalClient
 }
 
-func CreateGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
+func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
@@ -102,7 +120,7 @@ func CreateGithubRestClient(githubOauthToken string, githubRestAltURL string, ct
 	return client
 }
 
-func CreateGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
+func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
 	httpClient, _ := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
 	var client *githubv4.Client
 	if githubGraphqlAltURL != "" {
@@ -113,7 +131,7 @@ func CreateGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId in
 	return client
 }
 
-func CreateGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL string) *githubv4.Client {
+func createGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL string) *githubv4.Client {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
@@ -125,4 +143,40 @@ func CreateGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL stri
 		client = githubv4.NewClient(httpClient)
 	}
 	return client
+}
+
+func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *github.Client) {
+	var mainGithubClient *github.Client
+	var githubGraphQlClient *githubv4.Client
+
+	githubAppPrivateKeyPath := getEnv("GITHUB_APP_PRIVATE_KEY_PATH", "")
+	githubHost := getEnv("GITHUB_HOST", "")
+	var githubRestAltURL string
+	var githubGraphqlAltURL string
+	if githubHost != "" {
+		githubRestAltURL = "https://" + githubHost + "/api/v3"
+		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
+		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
+		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
+	} else {
+		log.Infof("Using public Github API endpoint")
+	}
+	if githubAppPrivateKeyPath != "" {
+		log.Infoln("Using GH app auth")
+
+		githubAppId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_ID"), 10, 64)
+		if err != nil {
+			log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
+		}
+
+		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
+		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubGraphqlAltURL, githubRestAltURL, ctx)
+	} else {
+		mainGithubClient = createGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
+		githubGraphQlClient = createGithubGraphQlClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubGraphqlAltURL)
+	}
+
+	prApproverGithubClient := createGithubRestClient(getCrucialEnv("APPROVER_GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
+
+	return mainGithubClient, githubGraphQlClient, prApproverGithubClient
 }

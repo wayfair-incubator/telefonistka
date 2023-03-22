@@ -3,7 +3,7 @@ package telefonistka
 import (
 	"context"
 	"net/http"
-	"strconv"
+	"os"
 	"time"
 
 	"github.com/alexliesenfeld/health"
@@ -16,7 +16,16 @@ import (
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 )
 
-var reverseCmd = &cobra.Command{
+func getCrucialEnv(key string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	log.Fatalf("%s environment variable is required", key)
+	os.Exit(3)
+	return ""
+}
+
+var serveCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Runs the web server that listens to GitHub webhooks",
 	Args:  cobra.ExactArgs(0),
@@ -27,7 +36,7 @@ var reverseCmd = &cobra.Command{
 
 // This is still(https://github.com/spf13/cobra/issues/1862) the documented way to use cobra
 func init() { //nolint:gochecknoinits
-	rootCmd.AddCommand(reverseCmd)
+	rootCmd.AddCommand(serveCmd)
 }
 
 func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, githubWebhookSecret []byte) func(http.ResponseWriter, *http.Request) {
@@ -50,62 +59,10 @@ func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *gith
 }
 
 func serve() {
-	switch getEnv("LOG_LEVEL", "info") {
-	case "debug":
-		log.SetLevel(log.DebugLevel)
-		log.SetReportCaller(true)
-	case "info":
-		log.SetLevel(log.InfoLevel)
-	case "warn":
-		log.SetLevel(log.WarnLevel)
-	case "error":
-		log.SetLevel(log.ErrorLevel)
-	case "fatal":
-		log.SetLevel(log.FatalLevel)
-	case "panic":
-		log.SetLevel(log.PanicLevel)
-	}
-
-	log.SetFormatter(&log.TextFormatter{
-		DisableColors: false,
-		// ForceColors: true,
-		FullTimestamp: true,
-	}) // TimestampFormat
-
 	ctx := context.Background()
-
-	var mainGithubClient *github.Client
-	var githubGraphQlClient *githubv4.Client
-
-	githubAppPrivateKeyPath := getEnv("GITHUB_APP_PRIVATE_KEY_PATH", "")
-	githubHost := getEnv("GITHUB_HOST", "")
-	var githubRestAltURL string
-	var githubGraphqlAltURL string
-	if githubHost != "" {
-		githubRestAltURL = "https://" + githubHost + "/api/v3"
-		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
-		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
-		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
-	} else {
-		log.Infof("Using public Github API endpoint")
-	}
-	if githubAppPrivateKeyPath != "" {
-		log.Infoln("Using GH app auth")
-
-		githubAppId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_ID"), 10, 64)
-		if err != nil {
-			log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
-		}
-
-		mainGithubClient = githubapi.CreateGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
-		githubGraphQlClient = githubapi.CreateGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubGraphqlAltURL, githubRestAltURL, ctx)
-	} else {
-		mainGithubClient = githubapi.CreateGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
-		githubGraphQlClient = githubapi.CreateGithubGraphQlClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubGraphqlAltURL)
-	}
+	mainGithubClient, githubGraphQlClient, prApproverGithubClient := githubapi.CreateAllClients(ctx)
 
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
-	prApproverGithubClient := githubapi.CreateGithubRestClient(getCrucialEnv("APPROVER_GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
 	readinessChecker := health.NewChecker(
 		health.WithPeriodicCheck(30*time.Second, 0*time.Second, health.Check{
