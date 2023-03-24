@@ -121,12 +121,6 @@ See [here](docs/observability.md)
 
 See the [open issues](https://github.com/wayfair-incubator/telefonistka/issues) for a list of proposed features (and known issues).
 
-## FAQ
-
-* Why is this deployed as a webhook server and not a CI/CD plugin like Github Actions? - Modern CI/CD system like GH actions and CircleCI usually allow unapproved code/configuration to execute on branches/PRs, this makes securing them or the secret they need somewhat hard.  
-Telefonistka needs credentials that allows opening PRs and approving them which in an IaC GitOps repo represent significant power. Running it as a distinct workload in a VM/container provides better security.  
-That being said, we acknowledge that maintaining an additional piece of infrastructure might not be for everyone, especially if you need it for only one repo so we do plan to release a Github action based version in the future.
-
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**. For detailed contributing guidelines, please see [CONTRIBUTING.md](CONTRIBUTING.md)
