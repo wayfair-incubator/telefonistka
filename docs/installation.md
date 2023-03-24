@@ -25,13 +25,13 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
 Additionally, GitHub Actions would need permission to write to  `content`, `pull-requests`, `statuses`.
 This is done via the repository setting "Action" > "General" page:
 
+<!-- markdownlint-disable MD033 -->
 <img width="792" alt="image" src="https://user-images.githubusercontent.com/1616153/227661321-7118fde6-6ada-4f98-a406-f5d53023cef3.png">
-
-
-
+<!-- markdownlint-enable MD033 -->
 
 For optimal user expirience Telefonistka could be run as continuously running webhook server.
 The current version of the docs doesn't cover the details of running the Telefonistka server beyond listing its [configuration options](#server-configuration) and noting that its `/webhook` endpoint needs to be accessible from Github(Cloud or private instance)
