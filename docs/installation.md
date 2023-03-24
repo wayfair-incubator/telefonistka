@@ -28,6 +28,9 @@ jobs:
 Additionally, GitHub Actions would need permission to write to  `content`, `pull-requests`, `statuses`.
 This is done via the repository setting "Action" > "General" page:
 
+<img width="792" alt="image" src="https://user-images.githubusercontent.com/1616153/227661321-7118fde6-6ada-4f98-a406-f5d53023cef3.png">
+
+
 
 
 For optimal user expirience Telefonistka could be run as continuously running webhook server.
