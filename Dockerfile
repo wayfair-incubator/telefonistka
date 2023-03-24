@@ -28,3 +28,5 @@ COPY --from=build /go/src/github.com/wayfair-incubator/telefonistka/telefonistka
 COPY templates/ /telefonistka/templates/
 USER 1001
 ENTRYPOINT ["/telefonistka/bin/telefonistka"]
+CMD ["server"]
+
