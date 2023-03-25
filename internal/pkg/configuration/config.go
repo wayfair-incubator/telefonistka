@@ -1,7 +1,6 @@
 package configuration
 
 import (
-	githubapi "github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -35,22 +34,10 @@ type Config struct {
 	ToggleCommitStatus      map[string]string `yaml:"toggleCommitStatus"`
 }
 
-func GetInRepoConfig(ghPrClientDetails githubapi.GhPrClientDetails, defaultBranch string) (*Config, error) {
-	// Create config structure
+func ParseConfigFromYaml(y string) (*Config, error) {
 	config := &Config{}
 
-	inRepoConfigFileContentString, err := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, "telefonistka.yaml")
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Could not get in-repo configuration: err=%s\n", err)
-		return nil, err
-	}
+	err := yaml.Unmarshal([]byte(y), config)
 
-	// Init new YAML decode
-	err = yaml.Unmarshal([]byte(inRepoConfigFileContentString), config)
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to parse configuration: err=%s\n", err) // TODO comment this error to PR
-		return nil, err
-	}
-
-	return config, nil
+	return config, err
 }

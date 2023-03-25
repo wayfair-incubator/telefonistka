@@ -1,6 +1,40 @@
 ## Installation
 
-The current version of the docs doesn't cover the details of running the Telefonistka instance beyond listing its [configuration options](#server-configuration) and noting that its `/webhook` endpoint needs to be accessible from Github(Cloud or private instance)
+Telefonistka can run as a webhook server or via GitHub Action.
+It is much easier to setup the GitHub Action configuration but the VM and container provisioning add a very noticeable delay to the event handling.
+
+Example GitHub Actions configuration:
+
+```yaml
+name: Telefonistka
+# Controls when the workflow will run "closed" is used for prmoting changes, "opened"/"synchronize" are needed to warn on drift.
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  pull_request:
+    types: 
+      - closed
+      - opened
+      - synchronize
+    branches: [ "main" ]
+
+jobs:
+  telefonistka:
+    runs-on: ubuntu-latest
+    steps:
+      - uses:  Oded-B/telefonistka-action@main
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Additionally, GitHub Actions would need permission to write to  `content`, `pull-requests`, `statuses`.
+This is done via the repository setting "Action" > "General" page:
+
+<!-- markdownlint-disable MD033 -->
+<img width="792" alt="image" src="https://user-images.githubusercontent.com/1616153/227661321-7118fde6-6ada-4f98-a406-f5d53023cef3.png">
+<!-- markdownlint-enable MD033 -->
+
+For optimal user expirience Telefonistka could be run as continuously running webhook server.
+The current version of the docs doesn't cover the details of running the Telefonistka server beyond listing its [configuration options](#server-configuration) and noting that its `/webhook` endpoint needs to be accessible from Github(Cloud or private instance)
 
 The Github side of the configuration can be done via a creation of an GitHub Application(recommended) or by configuring a webhook + github service account permission for each relevant repo.
 
