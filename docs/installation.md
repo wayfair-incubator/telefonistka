@@ -46,7 +46,7 @@ The Github side of the configuration can be done via a creation of an GitHub App
   * Provide the new app with read&write `Repository permissions` for `Commit statuses`, `Contents`, `Issues` and `Pull requests`.
   * Subscribe to `Issues` and `Pull request` events
   * Generate a `Private key` and provide it to your instance with the  `GITHUB_APP_PRIVATE_KEY_PATH` env variable.
-  * Grab the `App ID`, provide it to your instance with the `GITHUB_APP_ID` env variable.
+  * Grab the `App ID` and `App installation ID`, provide it to your instance with the `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID` env variables(see below).
 * For each relevant repo:
   * Add repo to application configuration.
   * Add `telefonistka.yaml` to repo root.
@@ -74,6 +74,18 @@ Environment variables for the webhook process:
 `GITHUB_APP_PRIVATE_KEY_PATH`  Private key for Github applications style of deployments, in PEM format
 
 `GITHUB_APP_ID` Application ID for Github applications style of deployments, available in the Github Application setting page.
+
+`GITHUB_APP_INSTALLATION_ID` Application installation ID, You can get the number to check the request, `Settings > Developer > settings > GitHub Apps > Advanced > Payload in Request tab
+
+```
+WebHook request
+...
+  "installation": {
+    "id": `installation ID`
+  }
+```
+
+
 
 Behavior of the bot is configured by YAML files **in the target repo**:
 

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v48/github"
@@ -30,79 +29,20 @@ func getCrucialEnv(key string) string {
 	return ""
 }
 
-func createGithubInstalltionHttpClient(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) (*http.Client, error) {
-	// GitHib app installation auth works as follows:
-	// Use private key to generate JWT
-	// Use JWT to in a temp new client to fetch "final" access token
-	// Use new access token in a new token
-
-	atr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, githubAppId, githubAppPrivateKeyPath)
+func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubRestAltURL string, ctx context.Context) *github.Client {
+	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, githubAppId, githubAppInstallationId, githubAppPrivateKeyPath)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	var tempClient *github.Client
+	var client *github.Client
 
 	if githubRestAltURL != "" {
-		tempClient, err = github.NewEnterpriseClient(
-			githubRestAltURL,
-			githubRestAltURL,
-			&http.Client{
-				Transport: atr,
-				Timeout:   time.Second * 30,
-			})
-		if err != nil {
-			log.Fatalf("faild to create git client for app: %v\n", err)
-		}
+		itr.BaseURL = githubRestAltURL
+		client, _ = github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, &http.Client{Transport: itr})
 	} else {
-		tempClient = github.NewClient(
-			&http.Client{
-				Transport: atr,
-				Timeout:   time.Second * 30,
-			})
+		client = github.NewClient(&http.Client{Transport: itr})
 	}
-
-	installations, _, err := tempClient.Apps.ListInstallations(context.Background(), &github.ListOptions{})
-	if err != nil {
-		log.Fatalf("failed to list installations: %v\n", err)
-	}
-
-	var installID int64
-	for _, val := range installations {
-		installID = val.GetID() // TODO how would this work on multiple installs????!?
-	}
-
-	log.Infoln(installID)
-
-	token, _, err := tempClient.Apps.CreateInstallationToken(
-		ctx,
-		installID,
-		&github.InstallationTokenOptions{})
-	if err != nil {
-		log.Fatalf("failed to create installation token: %v\n", err)
-	}
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token.GetToken()},
-	)
-
-	return oauth2.NewClient(context.Background(), ts), nil
-}
-
-func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) *github.Client {
-	oauthClient, err := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
-	var finalClient *github.Client
-	if githubRestAltURL != "" {
-		finalClient, err = github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, oauthClient)
-		if err != nil {
-			log.Fatalf("faild to create git client for app: %v\n", err)
-		}
-	} else {
-		finalClient = github.NewClient(oauthClient)
-	}
-
-	if err != nil {
-		log.Fatalf("failed to create new git client with token: %v\n", err)
-	}
-	return finalClient
+	return client
 }
 
 func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
@@ -120,15 +60,22 @@ func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ct
 	return client
 }
 
-func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
-	httpClient, _ := createGithubInstalltionHttpClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
+func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
+
+	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, githubAppId, githubAppInstallationId, githubAppPrivateKeyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	var client *githubv4.Client
-	if githubGraphqlAltURL != "" {
-		client = githubv4.NewEnterpriseClient(githubGraphqlAltURL, httpClient)
+
+	if githubRestAltURL != "" {
+		itr.BaseURL = githubRestAltURL
+		client = githubv4.NewEnterpriseClient(githubRestAltURL, &http.Client{Transport: itr})
 	} else {
-		client = githubv4.NewClient(httpClient)
+		client = githubv4.NewClient(&http.Client{Transport: itr})
 	}
 	return client
+
 }
 
 func createGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL string) *githubv4.Client {
@@ -168,9 +115,13 @@ func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *g
 		if err != nil {
 			log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
 		}
+		githubAppInstallationId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_INSTALLATION_ID"), 10, 64)
+		if err != nil {
+			log.Fatalf("GITHUB_APP_INSTALLATION_ID value could not converted to int64, %v", err)
+		}
 
-		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
-		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubGraphqlAltURL, githubRestAltURL, ctx)
+		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
+		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx)
 	} else {
 		mainGithubClient = createGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
 		githubGraphQlClient = createGithubGraphQlClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubGraphqlAltURL)
