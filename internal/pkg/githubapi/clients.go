@@ -31,7 +31,6 @@ func getCrucialEnv(key string) string {
 }
 
 func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) (int64, error) {
-
 	atr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, githubAppId, githubAppPrivateKeyPath)
 	if err != nil {
 		panic(err)
@@ -100,7 +99,6 @@ func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ct
 }
 
 func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
-
 	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, githubAppId, githubAppInstallationId, githubAppPrivateKeyPath)
 	if err != nil {
 		log.Fatal(err)
@@ -114,7 +112,6 @@ func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId in
 		client = githubv4.NewClient(&http.Client{Transport: itr})
 	}
 	return client
-
 }
 
 func createGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL string) *githubv4.Client {
