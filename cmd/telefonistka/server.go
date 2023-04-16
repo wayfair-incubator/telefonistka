@@ -69,10 +69,7 @@ func serve() {
 			// A side benefit of this is that we can get an up-to-date  ratelimit usage metrics, at a relatively small waste of rate usage
 			Name: "GitHub connectivity",
 			Check: func(ctx context.Context) error {
-				// _, resp, err := mainGithubClient.APIMeta(ctx)
-				// _, resp, err := mainGithubClient.Users.Get(ctx, "")
-				// _, resp, err := mainGithubClient.Apps.Get(ctx, "")
-				_, resp, err := mainGithubClient.RateLimits(ctx)
+				_, resp, err := mainGithubClient.APIMeta(ctx)
 				prom.InstrumentGhCall(resp)
 				if err != nil {
 					log.Errorf("Liveness Check: Failed to access GH API:\nerr=%s\nresponse=%v", err, resp)
