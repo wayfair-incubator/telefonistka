@@ -61,7 +61,6 @@ func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *gith
 func serve() {
 	ctx := context.Background()
 	mainGithubClient, githubGraphQlClient, prApproverGithubClient := githubapi.CreateAllClients(ctx)
-
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
 	readinessChecker := health.NewChecker(
