@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v48/github"
@@ -27,6 +28,44 @@ func getCrucialEnv(key string) string {
 	log.Fatalf("%s environment variable is required", key)
 	os.Exit(3)
 	return ""
+}
+
+func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) (int64, error) {
+
+	atr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, githubAppId, githubAppPrivateKeyPath)
+	if err != nil {
+		panic(err)
+	}
+	var tempClient *github.Client
+
+	if githubRestAltURL != "" {
+		tempClient, err = github.NewEnterpriseClient(
+			githubRestAltURL,
+			githubRestAltURL,
+			&http.Client{
+				Transport: atr,
+				Timeout:   time.Second * 30,
+			})
+		if err != nil {
+			log.Fatalf("failed to create git client for app: %v\n", err)
+		}
+	} else {
+		tempClient = github.NewClient(
+			&http.Client{
+				Transport: atr,
+				Timeout:   time.Second * 30,
+			})
+	}
+
+	installations, _, err := tempClient.Apps.ListInstallations(ctx, &github.ListOptions{})
+	if err != nil {
+		log.Fatalf("failed to list installations: %v\n", err)
+	}
+
+	installID := installations[0].GetID()
+	log.Infof("Installation ID for GitHub Application # %v is: %v", githubAppId, installID)
+
+	return installID, err
 }
 
 func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubRestAltURL string, ctx context.Context) *github.Client {
@@ -115,9 +154,9 @@ func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *g
 		if err != nil {
 			log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
 		}
-		githubAppInstallationId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_INSTALLATION_ID"), 10, 64)
+		githubAppInstallationId, err := getAppInstallationId(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
 		if err != nil {
-			log.Fatalf("GITHUB_APP_INSTALLATION_ID value could not converted to int64, %v", err)
+			log.Fatalf("Could not get GitHub Application Installation ID: %v", err)
 		}
 
 		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
