@@ -13,6 +13,12 @@ Based on configuration in the IaC repo, the bot will open pull requests that syn
 
 Providing reasonably flexible control over what is promoted to where and in what order.
 
+
+A 10 minutes ArgoCon EU 2023 session describing the project:
+
+[![ArgoCon EU 2023 session](https://img.youtube.com/vi/oiSsSiROj10/0.jpg)](https://www.youtube.com/watch?v=oiSsSiROj10)
+
+
 ## Modeling environments/failure-domains in an IaC GitOps repo
 
 RY is the new DRY!
