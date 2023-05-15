@@ -11,7 +11,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/migueleliasweb/go-github-mock v0.0.16
 	github.com/prometheus/client_golang v1.14.0
-	github.com/shurcooL/githubv4 v0.0.0-20230305132112-efb623903184
+	github.com/shurcooL/githubv4 v0.0.0-20230424031643-6cea62ecd5a9
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
 	golang.org/x/oauth2 v0.7.0
