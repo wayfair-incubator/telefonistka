@@ -13,6 +13,9 @@ import (
 	"text/template"
 
 	"github.com/google/go-github/v48/github"
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/hexops/gotextdiff/span"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
@@ -206,6 +209,44 @@ func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]
 	}
 }
 
+func BumpVersionWithRegex(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, regex string, replacement string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) error {
+	initialFileContent, err := GetFileContent(ghPrClientDetails, defaultBranch, filePath)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Fail to fetch file content:%s\n", err)
+	}
+
+	r := regexp.MustCompile(regex)
+	replaced := r.ReplaceAllString(initialFileContent, replacement)
+
+	edits := myers.ComputeEdits(span.URIFromPath(""), initialFileContent, replaced)
+	ghPrClientDetails.PrLogger.Infof("Diff:\n%s", gotextdiff.ToUnified("Before", "After", initialFileContent, edits))
+
+	var treeEntries []*github.TreeEntry
+
+	generateBumpTreeEntiesForCommit(&treeEntries, ghPrClientDetails, defaultBranch, filePath, replaced)
+
+	commit, err := createCommit(ghPrClientDetails, treeEntries, defaultBranch, "Bumping version @ "+filePath)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Commit creation failed: err=%v", err)
+		return err
+	}
+	newBranchRef, err := createBranch(ghPrClientDetails, commit, "bump_todo") // TODO figure out branch name!!!!
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Branch creation failed: err=%v", err)
+		return err
+	}
+
+	newPrTitle := triggeringRepo + "🚠 Bumping version @ " + filePath
+	newPrBody := fmt.Sprintf("Bumping version triggered by %s@%s", triggeringRepo, triggeringRepoSHA)
+	_, err = createPrObject(ghPrClientDetails, newBranchRef, newPrTitle, newPrBody, defaultBranch, triggeringActor)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("PR opening failed: err=%v", err)
+		return err
+	}
+
+	return nil
+}
+
 func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubClient *github.Client) error {
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
@@ -227,7 +268,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 
 			var treeEntries []*github.TreeEntry
 			for trgt, src := range promotion.ComputedSyncPaths {
-				err = GenerateTreeEntiesForCommit(&treeEntries, ghPrClientDetails, src, trgt, defaultBranch)
+				err = GenerateSyncTreeEntiesForCommit(&treeEntries, ghPrClientDetails, src, trgt, defaultBranch)
 				if err != nil {
 					ghPrClientDetails.PrLogger.Errorf("Failed to generate treeEntries for %s > %s,  err=%v", src, trgt, err)
 				} else {
@@ -240,17 +281,35 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 				continue
 			}
 
-			commit, err := CreateSyncCommit(ghPrClientDetails, treeEntries, defaultBranch, promotion.Metadata.SourcePath)
+			commit, err := createCommit(ghPrClientDetails, treeEntries, defaultBranch, "Syncing from "+promotion.Metadata.SourcePath)
 			if err != nil {
 				ghPrClientDetails.PrLogger.Errorf("Commit creation failed: err=%v", err)
 				return err
 			}
-			newBranchRef, err := CreateBranch(ghPrClientDetails, commit, promotion.Metadata.TargetPaths)
+
+			newBranchName := fmt.Sprintf("promotions/%v-%v-%v8", ghPrClientDetails.PrNumber, strings.Replace(ghPrClientDetails.Ref, "/", "-", -1), strings.Replace(strings.Join(promotion.Metadata.TargetPaths, "_"), "/", "-", -1)) // TODO max branch name length is 250 - make sure this fit
+
+			newBranchRef, err := createBranch(ghPrClientDetails, commit, newBranchName)
 			if err != nil {
 				ghPrClientDetails.PrLogger.Errorf("Branch creation failed: err=%v", err)
 				return err
 			}
-			pull, err := CreatePrObject(ghPrClientDetails, newBranchRef, promotion.Metadata.SourcePath, promotion.Metadata.TargetPaths, promotion.Metadata.ComponentNames, defaultBranch)
+
+			components := strings.Join(promotion.Metadata.ComponentNames, ",")
+			newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, strings.Join(promotion.Metadata.TargetPaths, " "))
+
+			var originalPrAuthor string
+			// If the triggering PR was opened manually and it doesn't include in-body metadata, use the PR author
+			// If the triggering PR as opened by Telefonistka and it has in-body metadata, fetch the original author from there
+			if ghPrClientDetails.PrMetadata.OriginalPrAuthor != "" {
+				originalPrAuthor = ghPrClientDetails.PrMetadata.OriginalPrAuthor
+			} else {
+				originalPrAuthor = ghPrClientDetails.PrAuthor
+			}
+
+			newPrBody := generatePromotionPrBody(ghPrClientDetails, components, promotion, originalPrAuthor)
+
+			pull, err := createPrObject(ghPrClientDetails, newBranchRef, newPrTitle, newPrBody, defaultBranch, originalPrAuthor)
 			if err != nil {
 				ghPrClientDetails.PrLogger.Errorf("PR opening failed: err=%v", err)
 				return err
@@ -447,7 +506,17 @@ func generateDeletionTreeEntries(ghPrClientDetails *GhPrClientDetails, path *str
 	return nil
 }
 
-func GenerateTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) error {
+func generateBumpTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, fileContent string) {
+	treeEntry := github.TreeEntry{
+		Path:    github.String(filePath),
+		Mode:    github.String("100644"),
+		Type:    github.String("blob"),
+		Content: github.String(fileContent),
+	}
+	*treeEntries = append(*treeEntries, &treeEntry)
+}
+
+func GenerateSyncTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) error {
 	repoContentGetOptions := github.RepositoryContentGetOptions{
 		Ref: defaultBranch,
 	}
@@ -488,7 +557,7 @@ func GenerateTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDet
 	return err
 }
 
-func CreateSyncCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.TreeEntry, defaultBranch string, sourcePath string) (*github.Commit, error) {
+func createCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.TreeEntry, defaultBranch string, commitMsg string) (*github.Commit, error) {
 	// To avoid cloning the repo locally, I'm using GitHub low level GIT Tree API to sync the source folder "over" the target folders
 	// This works by getting the source dir git object SHA, and overwriting(Git.CreateTree) the target directory git object SHA with the source's SHA.
 
@@ -514,7 +583,7 @@ func CreateSyncCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github
 	}
 
 	newCommitConfig := &github.Commit{
-		Message: github.String("Syncing from " + sourcePath),
+		Message: github.String(commitMsg),
 		Parents: []*github.Commit{parentCommit},
 		Tree:    tree,
 	}
@@ -529,8 +598,7 @@ func CreateSyncCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github
 	return commit, err
 }
 
-func CreateBranch(ghPrClientDetails GhPrClientDetails, commit *github.Commit, targetPaths []string) (string, error) {
-	newBranchName := fmt.Sprintf("promotions/%v-%v-%v8", ghPrClientDetails.PrNumber, strings.Replace(ghPrClientDetails.Ref, "/", "-", -1), strings.Replace(strings.Join(targetPaths, "_"), "/", "-", -1)) // TODO max branch name length is 250 - make sure this fit
+func createBranch(ghPrClientDetails GhPrClientDetails, commit *github.Commit, newBranchName string) (string, error) {
 	newBranchRef := "refs/heads/" + newBranchName
 	ghPrClientDetails.PrLogger.Infof("New branch name will be: %s", newBranchName)
 
@@ -552,18 +620,12 @@ func CreateBranch(ghPrClientDetails GhPrClientDetails, commit *github.Commit, ta
 	return newBranchRef, err
 }
 
-func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, sourcePath string, targetPaths []string, componentNames []string, defaultBranch string) (*github.PullRequest, error) {
+func generatePromotionPrBody(ghPrClientDetails GhPrClientDetails, components string, promotion PromotionInstance, originalPrAuthor string) string {
+	// newPrMetadata will be serialized and persisted in the PR body for use when the PR is merged
 	var newPrMetadata prMetadata
 	var newPrBody string
-	components := strings.Join(componentNames, ",")
 
-	// newPrMetadata will be serialized and persisted in the PR body for use when the PR is merged
-
-	if ghPrClientDetails.PrMetadata.OriginalPrAuthor != "" {
-		newPrMetadata.OriginalPrAuthor = ghPrClientDetails.PrMetadata.OriginalPrAuthor
-	} else {
-		newPrMetadata.OriginalPrAuthor = ghPrClientDetails.PrAuthor
-	}
+	newPrMetadata.OriginalPrAuthor = originalPrAuthor
 
 	if ghPrClientDetails.PrMetadata.PreviousPromotionMetadata != nil {
 		newPrMetadata.PreviousPromotionMetadata = ghPrClientDetails.PrMetadata.PreviousPromotionMetadata
@@ -572,13 +634,12 @@ func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, so
 	}
 
 	newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber] = promotionInstanceMetaData{
-		TargetPaths: targetPaths,
-		SourcePath:  sourcePath,
+		TargetPaths: promotion.Metadata.TargetPaths,
+		SourcePath:  promotion.Metadata.SourcePath,
 	}
 	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].TargetPaths = targetPaths
 	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].SourcePath = sourcePath
 
-	newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, strings.Join(targetPaths, " "))
 	newPrBody = fmt.Sprintf("Promotion path(%s):\n\n", components)
 
 	keys := make([]int, 0)
@@ -605,6 +666,10 @@ func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, so
 
 	newPrBody = newPrBody + "\n<!--|Telefonistka data, do not delete|" + prMetadataString + "|-->"
 
+	return newPrBody
+}
+
+func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, newPrTitle string, newPrBody string, defaultBranch string, assignee string) (*github.PullRequest, error) {
 	newPrConfig := &github.NewPullRequest{
 		Body:  github.String(newPrBody),
 		Title: github.String(newPrTitle),
@@ -630,13 +695,13 @@ func CreatePrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, so
 		ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", pull.Number, prLables)
 	}
 
-	_, resp, err = ghPrClientDetails.Ghclient.Issues.AddAssignees(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{newPrMetadata.OriginalPrAuthor})
+	_, resp, err = ghPrClientDetails.Ghclient.Issues.AddAssignees(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{assignee})
 	prom.InstrumentGhCall(resp)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Could set %s as assignee on PR,  err=%s", newPrMetadata.OriginalPrAuthor, err)
+		ghPrClientDetails.PrLogger.Errorf("Could set %s as assignee on PR,  err=%s", assignee, err)
 		return pull, err
 	} else {
-		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", newPrMetadata.OriginalPrAuthor)
+		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", assignee)
 	}
 
 	// reviewers := github.ReviewersRequest{

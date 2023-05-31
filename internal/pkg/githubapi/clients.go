@@ -83,7 +83,7 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64
 	return client
 }
 
-func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
+func CreateGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
@@ -159,11 +159,11 @@ func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *g
 		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
 		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx)
 	} else {
-		mainGithubClient = createGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
+		mainGithubClient = CreateGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
 		githubGraphQlClient = createGithubGraphQlClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubGraphqlAltURL)
 	}
 
-	prApproverGithubClient := createGithubRestClient(getCrucialEnv("APPROVER_GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
+	prApproverGithubClient := CreateGithubRestClient(getCrucialEnv("APPROVER_GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
 
 	return mainGithubClient, githubGraphQlClient, prApproverGithubClient
 }
