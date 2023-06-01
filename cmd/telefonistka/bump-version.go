@@ -2,13 +2,10 @@ package telefonistka
 
 import (
 	"context"
+	"os"
 	"strings"
 
-	// "os"
-	//
-
 	log "github.com/sirupsen/logrus"
-
 	"github.com/spf13/cobra"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
 )
@@ -60,5 +57,9 @@ func bumpVersion(targetRepo string, targetFile string, regex string, replacement
 	ghPrClientDetails.Repo = strings.Split(targetRepo, "/")[1]
 	ghPrClientDetails.PrLogger = log.WithFields(log.Fields{}) // TODO what fields should be here?
 
-	githubapi.BumpVersionWithRegex(ghPrClientDetails, "main", targetFile, regex, replacement, triggeringRepo, triggeringRepoSHA, triggeringActor)
+	err := githubapi.BumpVersionWithRegex(ghPrClientDetails, "main", targetFile, regex, replacement, triggeringRepo, triggeringRepoSHA, triggeringActor)
+	if err != nil {
+		log.Errorf("Failed to bump version: %v", err)
+		os.Exit(1)
+	}
 }
