@@ -483,6 +483,29 @@ func GenerateTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDet
 			SHA:  github.String(sourcePathSHA),
 		}
 		*treeEntries = append(*treeEntries, &treeEntry)
+
+		// Aperntly... the way we sync directories(set the target dir git tree object SHA) doesn't delete files!!!! GH just "merges" the old and new tree objects.
+		// So for now, I'll just go over all the files and add explicitly add  delete tree  entries  :(
+		// TODO compare sourcePath targetPath Git object SHA to avoid costly tree compare where possible?
+		sourceFilesSHAs := make(map[string]string)
+		targetFilesSHAs := make(map[string]string)
+		generateFlatMapfromFileTree(&ghPrClientDetails, &sourcePath, &sourcePath, &defaultBranch, sourceFilesSHAs)
+		generateFlatMapfromFileTree(&ghPrClientDetails, &targetPath, &targetPath, &defaultBranch, targetFilesSHAs)
+
+		for filename := range targetFilesSHAs {
+			if _, found := sourceFilesSHAs[filename]; !found {
+				ghPrClientDetails.PrLogger.Infof("%s -- was NOT found on %s, marking as a deletion!", filename, sourcePath)
+				treeEntry = github.TreeEntry{
+					Path:    github.String(targetPath + "/" + filename),
+					Mode:    github.String("100644"),
+					Type:    github.String("blob"),
+					SHA:     nil, // this is how you delete a file https://docs.github.com/en/rest/git/trees?apiVersion=2022-11-28#create-a-tree
+					Content: nil,
+				}
+				*treeEntries = append(*treeEntries, &treeEntry)
+			}
+		}
+
 	}
 
 	return err
