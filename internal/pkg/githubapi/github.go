@@ -505,7 +505,6 @@ func GenerateTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDet
 				*treeEntries = append(*treeEntries, &treeEntry)
 			}
 		}
-
 	}
 
 	return err
