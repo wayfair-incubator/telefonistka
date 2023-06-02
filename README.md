@@ -106,6 +106,20 @@ This is how this warning looks in the PR:
 <img src="https://user-images.githubusercontent.com/1616153/219383563-8b833c17-7701-45b6-9471-d937d03142f4.png"  width="50%" height="50%">
 <!-- markdownlint-enable MD033 -->
 
+### Artifact version bumping from CLI
+
+If your IaC repo deploys software you maintain internally you probably want to automate artifact version bumping.
+Telefonistka can automate opening the IaC repo PR for the version change from the  Code repo pipeline:
+
+```shell
+telefonistka bump-overwrite \
+    --target-repo Oded-B/telefonistka-example \
+    --target-file workspace/nginx/values-version.yaml \
+    --file <(echo -e "image:\n  tag: v3.4.9") \
+```
+
+It currently supports full file overwrite and regex based replacement.
+
 ## Installation and Configuration
 
 See [here](docs/installation.md)
