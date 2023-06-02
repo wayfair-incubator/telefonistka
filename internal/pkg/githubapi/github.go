@@ -207,7 +207,6 @@ func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]
 }
 
 func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, newFileContent string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) error {
-
 	var treeEntries []*github.TreeEntry
 
 	generateBumpTreeEntiesForCommit(&treeEntries, ghPrClientDetails, defaultBranch, filePath, newFileContent)
