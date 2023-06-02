@@ -119,6 +119,7 @@ telefonistka bump-overwrite \
 ```
 
 It currently supports full file overwrite and regex based replacement.
+See [here](docs/version_bumping.md) for more details
 
 ## Installation and Configuration
 
