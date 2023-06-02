@@ -3,8 +3,12 @@ package telefonistka
 import (
 	"context"
 	"os"
+	"regexp"
 	"strings"
 
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/hexops/gotextdiff/span"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
@@ -21,26 +25,26 @@ func init() { //nolint:gochecknoinits
 	var triggeringRepoSHA string
 	var triggeringActor string
 	eventCmd := &cobra.Command{
-		Use:   "bump",
-		Short: "Bump artifact version in a file",
-		Long:  "Bump artifact version in a file.\nThis open a pull request in the target repo.",
+		Use:   "bump-regex",
+		Short: "Bump artifact version in a file using regex",
+		Long:  "Bump artifact version in a file using regex.\nThis open a pull request in the target repo.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			bumpVersion(targetRepo, targetFile, regex, replacement, githubHost, triggeringRepo, triggeringRepoSHA, triggeringActor)
+			bumpVersionRegex(targetRepo, targetFile, regex, replacement, githubHost, triggeringRepo, triggeringRepoSHA, triggeringActor)
 		},
 	}
 	eventCmd.Flags().StringVarP(&targetRepo, "target-repo", "t", getEnv("TARGET_REPO", ""), "Target Git repository slug(e.g. org-name/repo-name), defaults to TARGET_REPO env var")
 	eventCmd.Flags().StringVarP(&targetFile, "target-file", "f", getEnv("TARGET_FILE", ""), "Target file path(from repo root), defaults to TARGET_FILE env var")
 	eventCmd.Flags().StringVarP(&regex, "regex-string", "r", "", "Regex used to replace artifact version, e.g. 'tag:\\s*(\\S*)'  ")
 	eventCmd.Flags().StringVarP(&replacement, "replacement-string", "n", "", "Replacement sting that includes the version of new artifact, e.g. 'tag: v2.7.1'  ")
-	eventCmd.Flags().StringVarP(&githubHost, "github-host", "g", "", "GitHub instance HOSTNAME, defaults to \"github.com\".\nThis is used for GitHub Enterprise Server instances")
+	eventCmd.Flags().StringVarP(&githubHost, "github-host", "g", "", "GitHub instance HOSTNAME, defaults to \"github.com\"et w This is used for GitHub Enterprise Server instances")
 	eventCmd.Flags().StringVarP(&triggeringRepo, "triggering-repo", "p", getEnv("GITHUB_REPOSITORY", ""), "Github repo triggering the version bump(e.g. `octocat/Hello-World`) defaults to GITHUB_REPOSITORY env var")
 	eventCmd.Flags().StringVarP(&triggeringRepoSHA, "triggering-repo-sha", "s", getEnv("GITHUB_SHA", ""), "Git SHA of triggering repo, defaults to GITHUB_SHA env var.")
 	eventCmd.Flags().StringVarP(&triggeringActor, "triggering-actor", "a", getEnv("GITHUB_ACTOR", ""), "GitHub user of the person/bot who triggered the bump, defaults to GITHUB_ACTOR env var.")
 	rootCmd.AddCommand(eventCmd)
 }
 
-func bumpVersion(targetRepo string, targetFile string, regex string, replacement string, githubHost string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) {
+func bumpVersionRegex(targetRepo string, targetFile string, regex string, replacement string, githubHost string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) {
 	ctx := context.Background()
 	var githubRestAltURL string
 
@@ -57,7 +61,20 @@ func bumpVersion(targetRepo string, targetFile string, regex string, replacement
 	ghPrClientDetails.Repo = strings.Split(targetRepo, "/")[1]
 	ghPrClientDetails.PrLogger = log.WithFields(log.Fields{}) // TODO what fields should be here?
 
-	err := githubapi.BumpVersionWithRegex(ghPrClientDetails, "main", targetFile, regex, replacement, triggeringRepo, triggeringRepoSHA, triggeringActor)
+	r := regexp.MustCompile(regex)
+	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+
+	initialFileContent, err, _ := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Fail to fetch file content:%s\n", err)
+		os.Exit(1)
+	}
+	newFileContent := r.ReplaceAllString(initialFileContent, replacement)
+
+	edits := myers.ComputeEdits(span.URIFromPath(""), initialFileContent, newFileContent)
+	ghPrClientDetails.PrLogger.Infof("Diff:\n%s", gotextdiff.ToUnified("Before", "After", initialFileContent, edits))
+
+	err = githubapi.BumpVersion(ghPrClientDetails, "main", targetFile, newFileContent, triggeringRepo, triggeringRepoSHA, triggeringActor)
 	if err != nil {
 		log.Errorf("Failed to bump version: %v", err)
 		os.Exit(1)

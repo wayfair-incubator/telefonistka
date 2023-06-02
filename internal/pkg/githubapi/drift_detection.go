@@ -25,8 +25,8 @@ func generateDiffOutput(ghPrClientDetails GhPrClientDetails, defaultBranch strin
 			if sha != targetPathfileSha {
 				ghPrClientDetails.PrLogger.Debugf("%s is different from %s", sourcePath+"/"+filename, targetPath+"/"+filename)
 				hasDiff = true
-				sourceFileContent, _ := GetFileContent(ghPrClientDetails, defaultBranch, sourcePath+"/"+filename)
-				targetFileContent, _ := GetFileContent(ghPrClientDetails, defaultBranch, targetPath+"/"+filename)
+				sourceFileContent, _, _ := GetFileContent(ghPrClientDetails, defaultBranch, sourcePath+"/"+filename)
+				targetFileContent, _, _ := GetFileContent(ghPrClientDetails, defaultBranch, targetPath+"/"+filename)
 
 				edits := myers.ComputeEdits(span.URIFromPath(filename), sourceFileContent, targetFileContent)
 				diffOutput.WriteString(fmt.Sprint(gotextdiff.ToUnified(sourcePath+"/"+filename, targetPath+"/"+filename, sourceFileContent, edits)))

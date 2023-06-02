@@ -13,9 +13,6 @@ import (
 	"text/template"
 
 	"github.com/google/go-github/v48/github"
-	"github.com/hexops/gotextdiff"
-	"github.com/hexops/gotextdiff/myers"
-	"github.com/hexops/gotextdiff/span"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
@@ -209,28 +206,18 @@ func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]
 	}
 }
 
-func BumpVersionWithRegex(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, regex string, replacement string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) error {
-	initialFileContent, err := GetFileContent(ghPrClientDetails, defaultBranch, filePath)
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Fail to fetch file content:%s\n", err)
-	}
-
-	r := regexp.MustCompile(regex)
-	replaced := r.ReplaceAllString(initialFileContent, replacement)
-
-	edits := myers.ComputeEdits(span.URIFromPath(""), initialFileContent, replaced)
-	ghPrClientDetails.PrLogger.Infof("Diff:\n%s", gotextdiff.ToUnified("Before", "After", initialFileContent, edits))
+func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, newFileContent string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) error {
 
 	var treeEntries []*github.TreeEntry
 
-	generateBumpTreeEntiesForCommit(&treeEntries, ghPrClientDetails, defaultBranch, filePath, replaced)
+	generateBumpTreeEntiesForCommit(&treeEntries, ghPrClientDetails, defaultBranch, filePath, newFileContent)
 
 	commit, err := createCommit(ghPrClientDetails, treeEntries, defaultBranch, "Bumping version @ "+filePath)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Commit creation failed: err=%v", err)
 		return err
 	}
-	newBranchRef, err := createBranch(ghPrClientDetails, commit, "bump_todo") // TODO figure out branch name!!!!
+	newBranchRef, err := createBranch(ghPrClientDetails, commit, "artifact_version_bump/"+triggeringRepo+"/"+triggeringRepoSHA) // TODO figure out branch name!!!!
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Branch creation failed: err=%v", err)
 		return err
@@ -238,11 +225,13 @@ func BumpVersionWithRegex(ghPrClientDetails GhPrClientDetails, defaultBranch str
 
 	newPrTitle := triggeringRepo + "🚠 Bumping version @ " + filePath
 	newPrBody := fmt.Sprintf("Bumping version triggered by %s@%s", triggeringRepo, triggeringRepoSHA)
-	_, err = createPrObject(ghPrClientDetails, newBranchRef, newPrTitle, newPrBody, defaultBranch, triggeringActor)
+	pr, err := createPrObject(ghPrClientDetails, newBranchRef, newPrTitle, newPrBody, defaultBranch, triggeringActor)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("PR opening failed: err=%v", err)
 		return err
 	}
+
+	ghPrClientDetails.PrLogger.Infof("New PR URL: %s", *pr.HTMLURL)
 
 	return nil
 }
@@ -758,7 +747,7 @@ func ApprovePr(approverClient *github.Client, ghPrClientDetails GhPrClientDetail
 }
 
 func GetInRepoConfig(ghPrClientDetails GhPrClientDetails, defaultBranch string) (*cfg.Config, error) {
-	inRepoConfigFileContentString, err := GetFileContent(ghPrClientDetails, defaultBranch, "telefonistka.yaml")
+	inRepoConfigFileContentString, err, _ := GetFileContent(ghPrClientDetails, defaultBranch, "telefonistka.yaml")
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Could not get in-repo configuration: err=%s\n", err)
 		return nil, err
@@ -770,18 +759,18 @@ func GetInRepoConfig(ghPrClientDetails GhPrClientDetails, defaultBranch string) 
 	return c, err
 }
 
-func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath string) (string, error) {
+func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath string) (string, error, int) {
 	rGetContentOps := github.RepositoryContentGetOptions{Ref: branch}
 	fileContent, _, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, filePath, &rGetContentOps)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to get file:%s\n%v\n", err, resp)
-		return "", err
+		return "", err, resp.StatusCode
 	}
 	fileContentString, err := fileContent.GetContent()
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to serlize file:%s\n", err)
-		return "", err
+		return "", err, resp.StatusCode
 	}
-	return fileContentString, nil
+	return fileContentString, nil, resp.StatusCode
 }
