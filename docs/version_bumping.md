@@ -15,7 +15,7 @@ Usage:
   telefonistka bump-overwrite [flags]
 
 Flags:
-  -c, --file string                           File that holds the content the target file will be overwriten with, like "version.yaml" or '<(echo -e "image:\n  tag: ${VERSION}")'.
+  -c, --file string                           File that holds the content the target file will be overwritten with, like "version.yaml" or '<(echo -e "image:\n  tag: ${VERSION}")'.
   -g, --github-host string                    GitHub instance HOSTNAME, defaults to "github.com". This is used for GitHub Enterprise Server instances.
   -h, --help                                  help for bump-overwrite.
   -f, --target-file string                    Target file path(from repo root), defaults to TARGET_FILE env var.
@@ -28,7 +28,7 @@ Flags:
 notes:
 
 * This can create new files in the target repo.
-* This was intended for cases where the IaC configuration allows adding additional minimal paramater/values file that only includes version information.
+* This was intended for cases where the IaC configuration allows adding additional minimal parameter/values file that only includes version information.
 
 ## Regex based search and replace
 
