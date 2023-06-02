@@ -17,7 +17,7 @@ import (
 func init() { //nolint:gochecknoinits
 	var targetRepo string
 	var targetFile string
-	var newFileContent string
+	var file string
 	var githubHost string
 	var triggeringRepo string
 	var triggeringRepoSHA string
@@ -28,12 +28,12 @@ func init() { //nolint:gochecknoinits
 		Long:  "Bump artifact version in a file using regex.\nThis open a pull request in the target repo.",
 		Args:  cobra.ExactArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			bumpVersionOverwrite(targetRepo, targetFile, newFileContent, githubHost, triggeringRepo, triggeringRepoSHA, triggeringActor)
+			bumpVersionOverwrite(targetRepo, targetFile, file, githubHost, triggeringRepo, triggeringRepoSHA, triggeringActor)
 		},
 	}
 	eventCmd.Flags().StringVarP(&targetRepo, "target-repo", "t", getEnv("TARGET_REPO", ""), "Target Git repository slug(e.g. org-name/repo-name), defaults to TARGET_REPO env var")
 	eventCmd.Flags().StringVarP(&targetFile, "target-file", "f", getEnv("TARGET_FILE", ""), "Target file path(from repo root), defaults to TARGET_FILE env var")
-	eventCmd.Flags().StringVarP(&newFileContent, "file-content", "c", "", "New file content(e.g. 'image:\\n  tag: v3.4.9')  ")
+	eventCmd.Flags().StringVarP(&file, "file", "c", "", "File that holds the content the target file will be overwriten with, like \"version.yaml\" or '<(echo -e \"image:\\n  tag: ${VERSION}\")' ")
 	eventCmd.Flags().StringVarP(&githubHost, "github-host", "g", "", "GitHub instance HOSTNAME, defaults to \"github.com\". This is used for GitHub Enterprise Server instances")
 	eventCmd.Flags().StringVarP(&triggeringRepo, "triggering-repo", "p", getEnv("GITHUB_REPOSITORY", ""), "Github repo triggering the version bump(e.g. `octocat/Hello-World`) defaults to GITHUB_REPOSITORY env var")
 	eventCmd.Flags().StringVarP(&triggeringRepoSHA, "triggering-repo-sha", "s", getEnv("GITHUB_SHA", ""), "Git SHA of triggering repo, defaults to GITHUB_SHA env var.")
@@ -41,7 +41,14 @@ func init() { //nolint:gochecknoinits
 	rootCmd.AddCommand(eventCmd)
 }
 
-func bumpVersionOverwrite(targetRepo string, targetFile string, newFileContent string, githubHost string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) {
+func bumpVersionOverwrite(targetRepo string, targetFile string, file string, githubHost string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) {
+	b, err := os.ReadFile(file)
+	if err != nil {
+		log.Errorf("Failed to read file %s, %v", file, err)
+		os.Exit(1)
+	}
+	newFileContent := string(b)
+
 	ctx := context.Background()
 	var githubRestAltURL string
 
