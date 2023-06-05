@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v48/github"
+	"github.com/google/go-github/v52/github"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"

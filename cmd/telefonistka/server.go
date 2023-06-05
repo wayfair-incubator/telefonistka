@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/alexliesenfeld/health"
-	"github.com/google/go-github/v48/github"
+	"github.com/google/go-github/v52/github"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"

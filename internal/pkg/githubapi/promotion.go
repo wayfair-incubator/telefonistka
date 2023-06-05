@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/google/go-github/v48/github"
+	"github.com/google/go-github/v52/github"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
