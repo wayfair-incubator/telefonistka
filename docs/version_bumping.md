@@ -40,10 +40,10 @@ Usage:
   telefonistka bump-regex [flags]
 
 Flags:
-  -g, --github-host string                    GitHub instance HOSTNAME, defaults to "github.com"et w This is used for GitHub Enterprise Server instances.
+  -g, --github-host string                    GitHub instance HOSTNAME, defaults to "github.com". This is used for GitHub Enterprise Server instances.
   -h, --help                                  help for bump-regex.
   -r, --regex-string string                   Regex used to replace artifact version, e.g. 'tag:\s*(\S*)',
-  -n, --replacement-string string             Replacement sting that includes the version of new artifact, e.g. 'tag: v2.7.1'.
+  -n, --replacement-string string             Replacement string that includes the version of new artifact, e.g. 'tag: v2.7.1'.
   -f, --target-file string                    Target file path(from repo root), defaults to TARGET_FILE env var.
   -t, --target-repo string                    Target Git repository slug(e.g. org-name/repo-name), defaults to TARGET_REPO env var.
   -a, --triggering-actor string               GitHub user of the person/bot who triggered the bump, defaults to GITHUB_ACTOR env var.

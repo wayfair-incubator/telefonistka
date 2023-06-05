@@ -256,7 +256,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 
 			var treeEntries []*github.TreeEntry
 			for trgt, src := range promotion.ComputedSyncPaths {
-				err = GenerateSyncTreeEntiesForCommit(&treeEntries, ghPrClientDetails, src, trgt, defaultBranch)
+				err = GenerateSyncTreeEntriesForCommit(&treeEntries, ghPrClientDetails, src, trgt, defaultBranch)
 				if err != nil {
 					ghPrClientDetails.PrLogger.Errorf("Failed to generate treeEntries for %s > %s,  err=%v", src, trgt, err)
 				} else {
@@ -504,7 +504,7 @@ func generateBumpTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClien
 	*treeEntries = append(*treeEntries, &treeEntry)
 }
 
-func GenerateSyncTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) error {
+func GenerateSyncTreeEntriesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) error {
 	repoContentGetOptions := github.RepositoryContentGetOptions{
 		Ref: defaultBranch,
 	}
