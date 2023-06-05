@@ -9,10 +9,10 @@ require (
 	github.com/google/go-github/v48 v48.2.0
 	github.com/google/go-github/v52 v52.0.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/migueleliasweb/go-github-mock v0.0.17
+	github.com/migueleliasweb/go-github-mock v0.0.18
 	github.com/prometheus/client_golang v1.15.1
 	github.com/shurcooL/githubv4 v0.0.0-20230424031643-6cea62ecd5a9
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
 	golang.org/x/oauth2 v0.8.0
 	gopkg.in/yaml.v2 v2.4.0
