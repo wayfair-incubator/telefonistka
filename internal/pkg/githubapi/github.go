@@ -12,7 +12,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/google/go-github/v48/github"
+	"github.com/google/go-github/v52/github"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
