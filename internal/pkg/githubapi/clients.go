@@ -98,7 +98,7 @@ func CreateGithubRestClient(githubOauthToken string, githubRestAltURL string, ct
 	return client
 }
 
-func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubGraphqlAltURL string, ctx context.Context) *githubv4.Client {
+func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubGraphqlAltURL string, githubRestAltURL string, ctx context.Context) *githubv4.Client {
 	itr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, githubAppId, githubAppInstallationId, githubAppPrivateKeyPath)
 	if err != nil {
 		log.Fatal(err)
@@ -106,7 +106,7 @@ func createGithubAppGraphQlClient(githubAppPrivateKeyPath string, githubAppId in
 	var client *githubv4.Client
 
 	if githubGraphqlAltURL != "" {
-		itr.BaseURL = githubGraphqlAltURL
+		itr.BaseURL = githubRestAltURL
 		client = githubv4.NewEnterpriseClient(githubGraphqlAltURL, &http.Client{Transport: itr})
 	} else {
 		client = githubv4.NewClient(&http.Client{Transport: itr})
@@ -157,7 +157,7 @@ func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *g
 		}
 
 		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
-		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, ctx)
+		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx)
 	} else {
 		mainGithubClient = CreateGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
 		githubGraphQlClient = createGithubGraphQlClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubGraphqlAltURL)
