@@ -1,4 +1,4 @@
-name: Docker
+name: Docker-comment
 
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
@@ -6,8 +6,6 @@ name: Docker
 # documentation.
 
 on:
-  pull_request:
-    types: [opened]
   issue_comment:
     types: [created]
 
@@ -19,7 +17,7 @@ env:
 
 
 jobs:
-  build:
+  build-on-comment:
 
     runs-on: ubuntu-latest
     permissions:
