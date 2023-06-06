@@ -19,7 +19,7 @@ env:
 jobs:
   build-on-comment:
     runs-on: ubuntu-latest
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/publish')
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/publish') && github.event.comment.user.login == "Oded-B"
     permissions:
       contents: read
       packages: write
