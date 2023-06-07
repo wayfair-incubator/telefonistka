@@ -130,9 +130,13 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
 			ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
 			defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
-			config, _ := GetInRepoConfig(ghPrClientDetails, defaultBranch)
-			promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
-			commentPlanInPR(ghPrClientDetails, promotions)
+			config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+			if err != nil {
+				ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
+			} else {
+				promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
+				commentPlanInPR(ghPrClientDetails, promotions)
+			}
 		}
 
 		if prHandleError == nil {
@@ -169,7 +173,6 @@ func handlecommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {
-		_ = ghPrClientDetails.CommentOnPr(fmt.Sprintf("Failed to get configuration\n```\n%s\n```\n", err))
 		return err
 	}
 	// Comment events doesn't have Ref/SHA in payload, enriching the object:
