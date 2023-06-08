@@ -64,18 +64,36 @@ func generateDiffOutput(ghPrClientDetails GhPrClientDetails, defaultBranch strin
 }
 
 func CompareRepoDirectories(ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) (bool, string, error) {
-	// TODO compare sourcePath targetPath Git object SHA to avoid costly tree compare where possible?
+	// Compares two directories content
 
-	sourceFilesSHAs := make(map[string]string)
-	targetFilesSHAs := make(map[string]string)
-	hasDiff := false
+	// comparing sourcePath targetPath Git object SHA to avoid costly tree compare:
+	sourcePathGitObjectSha, err := getDirecotyGitObjectSha(ghPrClientDetails, sourcePath, defaultBranch)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Couldn't get %v, Git object sha: %v", sourcePath, err)
+		return false, "", err
+	}
+	targetPathGitObjectSha, err := getDirecotyGitObjectSha(ghPrClientDetails, targetPath, defaultBranch)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Couldn't get %v, Git object sha: %v", targetPath, err)
+		return false, "", err
+	}
 
-	generateFlatMapfromFileTree(&ghPrClientDetails, &sourcePath, &sourcePath, &defaultBranch, sourceFilesSHAs)
-	generateFlatMapfromFileTree(&ghPrClientDetails, &targetPath, &targetPath, &defaultBranch, targetFilesSHAs)
-	// ghPrClientDetails.PrLogger.Infoln(sourceFilesSHAs)
-	hasDiff, diffOutput, err := generateDiffOutput(ghPrClientDetails, defaultBranch, sourceFilesSHAs, targetFilesSHAs, sourcePath, targetPath)
+	if sourcePathGitObjectSha == targetPathGitObjectSha {
+		ghPrClientDetails.PrLogger.Debugf("%s(%s) vs %s(%s) git object SHA matched.", sourcePath, sourcePathGitObjectSha, targetPath, targetPathGitObjectSha)
+		return false, "", nil
+	} else {
+		ghPrClientDetails.PrLogger.Debugf("%s(%s) vs %s(%s) git object SHA didn't match! Will do a full tree compare", sourcePath, sourcePathGitObjectSha, targetPath, targetPathGitObjectSha)
+		sourceFilesSHAs := make(map[string]string)
+		targetFilesSHAs := make(map[string]string)
+		hasDiff := false
 
-	return hasDiff, diffOutput, err
+		generateFlatMapfromFileTree(&ghPrClientDetails, &sourcePath, &sourcePath, &defaultBranch, sourceFilesSHAs)
+		generateFlatMapfromFileTree(&ghPrClientDetails, &targetPath, &targetPath, &defaultBranch, targetFilesSHAs)
+		// ghPrClientDetails.PrLogger.Infoln(sourceFilesSHAs)
+		hasDiff, diffOutput, err := generateDiffOutput(ghPrClientDetails, defaultBranch, sourceFilesSHAs, targetFilesSHAs, sourcePath, targetPath)
+
+		return hasDiff, diffOutput, err
+	}
 }
 
 func generateFlatMapfromFileTree(ghPrClientDetails *GhPrClientDetails, workingPath *string, rootPath *string, branch *string, listOfFiles map[string]string) {
