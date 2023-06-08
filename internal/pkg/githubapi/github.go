@@ -146,7 +146,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 			}
 		}
 
-		if wasCommitStatusSet == true {
+		if wasCommitStatusSet {
 			if prHandleError == nil {
 				SetCommitStatus(ghPrClientDetails, "success")
 			} else {
@@ -172,7 +172,6 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 			}
 
 			_ = handlecommentPrEvent(ghPrClientDetails, eventPayload)
-
 		} else {
 			log.Debug("Ignoring self comment")
 		}
