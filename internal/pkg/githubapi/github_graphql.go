@@ -1,14 +1,35 @@
 package githubapi
 
 import (
+	"context"
 	"strings"
 
 	"github.com/shurcooL/githubv4"
+	log "github.com/sirupsen/logrus"
 )
 
 // go-github is my peffered way to interact with GitHub because of the better developer expirience(pre made types, easy API mocking).
 // But some functionality is not availalble in GH V3 rest API, like PR comment minimization, so here we are:
-func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlClient *githubv4.Client) error {
+
+func GetBotGhIdentity(githubGraphQlClient *githubv4.Client, ctx context.Context) (string, error) {
+
+	var getBotGhIdentityQuery struct {
+		Viewer struct {
+			Login githubv4.String
+		}
+	}
+
+	err := githubGraphQlClient.Query(ctx, &getBotGhIdentityQuery, nil)
+	botIdentity := getBotGhIdentityQuery.Viewer.Login
+	if err != nil {
+		log.Errorf("Failed to fetch token owner name: err=%s\n", err)
+		return "", err
+	}
+	return string(botIdentity), nil
+
+}
+
+func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlClient *githubv4.Client, botIdentity string) error {
 	var getCommentNodeIdsQuery struct {
 		Repository struct {
 			PullRequest struct {
@@ -46,31 +67,19 @@ func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlCli
 		} `graphql:"minimizeComment(input: $input)"`
 	}
 
-	var getBotGhIdentityQuery struct {
-		Viewer struct {
-			Login githubv4.String
-		}
-	}
-
-	err := githubGraphQlClient.Query(ghPrClientDetails.Ctx, &getBotGhIdentityQuery, nil)
-	botIdentity := getBotGhIdentityQuery.Viewer.Login
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to fetch token owner name: err=%s\n", err)
-	}
-
-	err = githubGraphQlClient.Query(ghPrClientDetails.Ctx, &getCommentNodeIdsQuery, getCommentNodeIdsParams)
+	err := githubGraphQlClient.Query(ghPrClientDetails.Ctx, &getCommentNodeIdsQuery, getCommentNodeIdsParams)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
 	}
-
+	bi := githubv4.String(botIdentity)
 	for _, prComment := range getCommentNodeIdsQuery.Repository.PullRequest.Comments.Edges {
-		if !prComment.Node.IsMinimized && prComment.Node.Author.Login == botIdentity {
+		if !prComment.Node.IsMinimized && prComment.Node.Author.Login == bi {
 			if strings.Contains(string(prComment.Node.Body), "<!-- telefonistka_tag -->") {
 				ghPrClientDetails.PrLogger.Infof("Minimizing Comment %s", prComment.Node.Id)
 				minimizeCommentInput := githubv4.MinimizeCommentInput{
 					SubjectID:        prComment.Node.Id,
 					Classifier:       githubv4.ReportedContentClassifiers("OUTDATED"),
-					ClientMutationID: &botIdentity,
+					ClientMutationID: &bi,
 				}
 				err := githubGraphQlClient.Mutate(ghPrClientDetails.Ctx, &minimizeCommentMutation, minimizeCommentInput, nil)
 				// As far as I can tell minimizeComment Github's grpahQL method doesn't accept list do doing one call per comment

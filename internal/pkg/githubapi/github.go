@@ -59,7 +59,7 @@ func (pm prMetadata) serialize() (string, error) {
 	return base64.StdEncoding.EncodeToString(pmJson), nil
 }
 
-func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context) {
+func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, botIdentity string) {
 	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
 	if err != nil {
 		log.Errorf("could not parse webhook: err=%s\n", err)
@@ -121,7 +121,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
 			SetCommitStatus(ghPrClientDetails, "pending")
 			wasCommitStatusSet = true
-			err = MimizeStalePrComments(ghPrClientDetails, githubGraphQlClient)
+			err = MimizeStalePrComments(ghPrClientDetails, githubGraphQlClient, botIdentity)
 			if err != nil {
 				prHandleError = err
 				log.Errorf("Failed to minimize stale comments: err=%s\n", err)
@@ -171,7 +171,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 				PrLogger: prLogger,
 			}
 
-			_ = handlecommentPrEvent(ghPrClientDetails, eventPayload)
+			_ = handleCommentPrEvent(ghPrClientDetails, eventPayload)
 		} else {
 			log.Debug("Ignoring self comment")
 		}
@@ -182,7 +182,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 	}
 }
 
-func handlecommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueCommentEvent) error {
+func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueCommentEvent) error {
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {

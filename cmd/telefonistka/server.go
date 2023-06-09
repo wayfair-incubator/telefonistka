@@ -39,7 +39,7 @@ func init() { //nolint:gochecknoinits
 	rootCmd.AddCommand(serveCmd)
 }
 
-func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, githubWebhookSecret []byte) func(http.ResponseWriter, *http.Request) {
+func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, githubWebhookSecret []byte, botIdentity string) func(http.ResponseWriter, *http.Request) {
 	if mainGithubClient == nil {
 		panic("nil GH session!")
 	}
@@ -54,13 +54,14 @@ func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *gith
 		}
 		eventType := github.WebHookType(r)
 
-		githubapi.HandleEvent(eventType, payload, mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx)
+		githubapi.HandleEvent(eventType, payload, mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx, botIdentity)
 	}
 }
 
 func serve() {
 	ctx := context.Background()
 	mainGithubClient, githubGraphQlClient, prApproverGithubClient := githubapi.CreateAllClients(ctx)
+	botIdentity, _ := githubapi.GetBotGhIdentity(githubGraphQlClient, ctx)
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
 	readinessChecker := health.NewChecker(
@@ -84,7 +85,7 @@ func serve() {
 	)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/webhook", handleWebhook(mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx, githubWebhookSecret))
+	mux.HandleFunc("/webhook", handleWebhook(mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx, githubWebhookSecret, botIdentity))
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/live", health.NewHandler(livenessChecker))
 	mux.Handle("/ready", health.NewHandler(readinessChecker))
