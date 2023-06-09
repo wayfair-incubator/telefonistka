@@ -10,9 +10,7 @@ import (
 
 // go-github is my peffered way to interact with GitHub because of the better developer expirience(pre made types, easy API mocking).
 // But some functionality is not availalble in GH V3 rest API, like PR comment minimization, so here we are:
-
 func GetBotGhIdentity(githubGraphQlClient *githubv4.Client, ctx context.Context) (string, error) {
-
 	var getBotGhIdentityQuery struct {
 		Viewer struct {
 			Login githubv4.String
@@ -26,7 +24,6 @@ func GetBotGhIdentity(githubGraphQlClient *githubv4.Client, ctx context.Context)
 		return "", err
 	}
 	return string(botIdentity), nil
-
 }
 
 func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlClient *githubv4.Client, botIdentity string) error {
