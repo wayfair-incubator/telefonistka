@@ -155,8 +155,8 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		}
 
 	case *github.IssueCommentEvent:
-		log.Infof("Actionable event type %s, by %s \n", eventType, *eventPayload.Comment.User.Login)
-		if *eventPayload.Comment.User.Login != "telefonistka" { // TODO don't hardcode user name
+		log.Infof("Actionable event type %s (by %s )", eventType, *eventPayload.Comment.User.Login)
+		if *eventPayload.Comment.User.Login != botIdentity {
 			prLogger := log.WithFields(log.Fields{
 				"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
 				"prNumber": *eventPayload.Issue.Number,
@@ -177,7 +177,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		}
 
 	default:
-		log.Infof("Non actionable event type %s\n", eventType)
+		log.Infof("Non-actionable event type %s", eventType)
 		return
 	}
 }
@@ -574,7 +574,7 @@ func GenerateSyncTreeEntriesForCommit(treeEntries *[]*github.TreeEntry, ghPrClie
 
 		for filename := range targetFilesSHAs {
 			if _, found := sourceFilesSHAs[filename]; !found {
-				ghPrClientDetails.PrLogger.Infof("%s -- was NOT found on %s, marking as a deletion!", filename, sourcePath)
+				ghPrClientDetails.PrLogger.Debugf("%s -- was NOT found on %s, marking as a deletion!", filename, sourcePath)
 				fileDeleteTreeEntry := github.TreeEntry{
 					Path:    github.String(targetPath + "/" + filename),
 					Mode:    github.String("100644"),
