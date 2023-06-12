@@ -211,7 +211,7 @@ func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPa
 		if keyExist {
 			log.Debug("Found global cached client")
 		} else {
-			log.Info("Did not found global cached client, creating one with %s env var", ghOauthTokenEnvVarName)
+			log.Infof("Did not found global cached client, creating one with %s env var", ghOauthTokenEnvVarName)
 			ghOauthToken := getCrucialEnv(ghOauthTokenEnvVarName)
 
 			*gcp = createGhTokenClientPair(ctx, ghOauthToken)
