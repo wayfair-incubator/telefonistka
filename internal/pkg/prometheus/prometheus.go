@@ -17,21 +17,21 @@ var (
 		Subsystem: "webhook_server",
 	}, []string{"parsing"})
 
-	ghRateLimitCounter = promauto.NewGauge(prometheus.GaugeOpts{
+	ghRateLimitCounter = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "github_rest_api_client_rate_limit",
 		Help:      "The number of requests per hour the client is currently limited to",
 		Namespace: "telefonistka",
 		Subsystem: "github",
-	})
+	}, []string{"repo_owner"})
 
-	ghRateRemainingCounter = promauto.NewGauge(prometheus.GaugeOpts{
+	ghRateRemainingCounter = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "github_rest_api_client_rate_remaining",
 		Help:      "The number of remaining requests the client can make this hour",
 		Namespace: "telefonistka",
 		Subsystem: "github",
-	})
+	}, []string{"repo_owner"})
 
-	GithubOpsCountVec = promauto.NewCounterVec(prometheus.CounterOpts{
+	githubOpsCountVec = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name:      "github_operations_total",
 		Help:      "The total number of Github API operations",
 		Namespace: "telefonistka",
@@ -58,17 +58,21 @@ func InstrumentGhCall(resp *github.Response) prometheus.Labels {
 	}
 	var apiPath string
 	var repoSlug string
+	var repoOwner string
 
 	if len(relevantRequestPathSlice) < 4 {
 		apiPath = ""
 		if len(relevantRequestPathSlice) < 3 {
 			repoSlug = ""
+			repoOwner = ""
 		} else {
 			repoSlug = strings.Join(relevantRequestPathSlice[1:3], "/")
+			repoOwner = relevantRequestPathSlice[1]
 		}
 	} else {
 		apiPath = relevantRequestPathSlice[3]
 		repoSlug = strings.Join(relevantRequestPathSlice[1:3], "/")
+		repoOwner = relevantRequestPathSlice[1]
 	}
 
 	labels := prometheus.Labels{
@@ -79,10 +83,13 @@ func InstrumentGhCall(resp *github.Response) prometheus.Labels {
 		"status":    strconv.Itoa(resp.Response.StatusCode),
 	}
 
-	ghRateLimitCounter.Set(float64(resp.Rate.Limit))
-	ghRateRemainingCounter.Set(float64(resp.Rate.Remaining))
+	rateLimitLables := prometheus.Labels{
+		"repo_owner": repoOwner,
+	}
+	ghRateLimitCounter.With(rateLimitLables).Set(float64(resp.Rate.Limit))
+	ghRateRemainingCounter.With(rateLimitLables).Set(float64(resp.Rate.Remaining))
 
-	GithubOpsCountVec.With(labels).Inc()
+	githubOpsCountVec.With(labels).Inc()
 	// resp.Request.
 
 	return labels
