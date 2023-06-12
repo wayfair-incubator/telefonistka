@@ -172,7 +172,6 @@ func HandleEvent(eventType string, payload []byte, ctx context.Context, mainGhCl
 			"prNumber": *eventPayload.Issue.Number,
 		})
 		if *eventPayload.Comment.User.Login != botIdentity {
-
 			ghPrClientDetails := GhPrClientDetails{
 				Ctx:      ctx,
 				Ghclient: mainGithubClientPair.v3Client,

@@ -139,8 +139,8 @@ func createGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL stri
 	}
 	return client
 }
-func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string, ghAppPKeyPathEnvVarName string) GhClientPair {
 
+func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string, ghAppPKeyPathEnvVarName string) GhClientPair {
 	// var ghClientPair *GhClientPair
 	var githubRestAltURL string
 	var githubGraphqlAltURL string
@@ -166,7 +166,6 @@ func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string,
 		v3Client: createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx),
 		v4Client: createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx),
 	}
-
 }
 
 func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientPair {
@@ -189,11 +188,9 @@ func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientP
 		v3Client: CreateGithubRestClient(ghOauthToken, githubRestAltURL, ctx),
 		v4Client: createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL),
 	}
-
 }
 
 func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPair], ghAppIdEnvVarName string, ghAppPKeyPathEnvVarName string, ghOauthTokenEnvVarName string, repoOwner string, ctx context.Context) {
-
 	githubAppId := getEnv(ghAppIdEnvVarName, "")
 	var keyExist bool
 	if githubAppId != "" {
@@ -221,5 +218,4 @@ func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPa
 			ghClientCache.Add("global", *gcp)
 		}
 	}
-
 }
