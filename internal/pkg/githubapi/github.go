@@ -59,7 +59,7 @@ func (pm prMetadata) serialize() (string, error) {
 	return base64.StdEncoding.EncodeToString(pmJson), nil
 }
 
-func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context) {
+func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, botIdentity string) {
 	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
 	if err != nil {
 		log.Errorf("could not parse webhook: err=%s\n", err)
@@ -73,8 +73,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		// this is a commit push, do something with it?
 		log.Infoln("is PushEvent")
 	case *github.PullRequestEvent:
-		// this is a pull request, do something with it
-		log.Infoln("is PullRequestEvent")
+		log.Infof("is PullRequestEvent(%s)", *eventPayload.Action)
 
 		prLogger := log.WithFields(log.Fields{
 			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
@@ -106,17 +105,23 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 			}
 		}
 
-		SetCommitStatus(ghPrClientDetails, "pending")
+		// wasCommitStatusSet and the placement of SetCommitStatus in the flow is used to ensure an API call is only made where it needed
+		wasCommitStatusSet := false
+
 		var prHandleError error
 
 		if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
+			SetCommitStatus(ghPrClientDetails, "pending")
+			wasCommitStatusSet = true
 			err := handleMergedPrEvent(ghPrClientDetails, prApproverGithubClient)
 			if err != nil {
 				prHandleError = err
 				ghPrClientDetails.PrLogger.Errorf("Handling of merged PR failed: err=%s\n", err)
 			}
 		} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
-			err = MimizeStalePrComments(ghPrClientDetails, githubGraphQlClient)
+			SetCommitStatus(ghPrClientDetails, "pending")
+			wasCommitStatusSet = true
+			err = MimizeStalePrComments(ghPrClientDetails, githubGraphQlClient, botIdentity)
 			if err != nil {
 				prHandleError = err
 				log.Errorf("Failed to minimize stale comments: err=%s\n", err)
@@ -128,6 +133,8 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 				ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
 			}
 		} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
+			SetCommitStatus(ghPrClientDetails, "pending")
+			wasCommitStatusSet = true
 			ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
 			defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 			config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
@@ -139,37 +146,43 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 			}
 		}
 
-		if prHandleError == nil {
-			SetCommitStatus(ghPrClientDetails, "success")
-		} else {
-			SetCommitStatus(ghPrClientDetails, "error")
+		if wasCommitStatusSet {
+			if prHandleError == nil {
+				SetCommitStatus(ghPrClientDetails, "success")
+			} else {
+				SetCommitStatus(ghPrClientDetails, "error")
+			}
 		}
 
 	case *github.IssueCommentEvent:
-		log.Infof("Actionable event type %s\n", eventType)
-		prLogger := log.WithFields(log.Fields{
-			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
-			"prNumber": *eventPayload.Issue.Number,
-		})
-		ghPrClientDetails := GhPrClientDetails{
-			Ctx:      ctx,
-			Ghclient: mainGithubClient,
-			Owner:    *eventPayload.Repo.Owner.Login,
-			Repo:     *eventPayload.Repo.Name,
-			PrNumber: *eventPayload.Issue.Number,
-			PrAuthor: *eventPayload.Issue.User.Login,
-			PrLogger: prLogger,
+		log.Infof("Actionable event type %s (by %s )", eventType, *eventPayload.Comment.User.Login)
+		if *eventPayload.Comment.User.Login != botIdentity {
+			prLogger := log.WithFields(log.Fields{
+				"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
+				"prNumber": *eventPayload.Issue.Number,
+			})
+			ghPrClientDetails := GhPrClientDetails{
+				Ctx:      ctx,
+				Ghclient: mainGithubClient,
+				Owner:    *eventPayload.Repo.Owner.Login,
+				Repo:     *eventPayload.Repo.Name,
+				PrNumber: *eventPayload.Issue.Number,
+				PrAuthor: *eventPayload.Issue.User.Login,
+				PrLogger: prLogger,
+			}
+
+			_ = handleCommentPrEvent(ghPrClientDetails, eventPayload)
+		} else {
+			log.Debug("Ignoring self comment")
 		}
 
-		_ = handlecommentPrEvent(ghPrClientDetails, eventPayload)
-
 	default:
-		log.Infof("Non actionable event type %s\n", eventType)
+		log.Infof("Non-actionable event type %s", eventType)
 		return
 	}
 }
 
-func handlecommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueCommentEvent) error {
+func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueCommentEvent) error {
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {
@@ -408,6 +421,7 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 		Context:     &context,
 		AvatarURL:   &avatarURL,
 	}
+	ghPrClientDetails.PrLogger.Debugf("Setting commit %s status to %s", ghPrClientDetails.PrSHA, state)
 	_, resp, err := ghPrClientDetails.Ghclient.Repositories.CreateStatus(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrSHA, commitStatus)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
@@ -507,26 +521,32 @@ func generateBumpTreeEntiesForCommit(treeEntries *[]*github.TreeEntry, ghPrClien
 	*treeEntries = append(*treeEntries, &treeEntry)
 }
 
-func GenerateSyncTreeEntriesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) error {
+func getDirecotyGitObjectSha(ghPrClientDetails GhPrClientDetails, dirPath string, branch string) (string, error) {
 	repoContentGetOptions := github.RepositoryContentGetOptions{
-		Ref: defaultBranch,
+		Ref: branch,
 	}
-	sourcePathSHA := ""
 
+	direcotyGitObjectSha := ""
 	// in GH API/go-github, to get directory SHA you need to scan the whole parent Dir 🤷
-	_, directoryContent, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, path.Dir(sourcePath), &repoContentGetOptions)
+	_, directoryContent, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, path.Dir(dirPath), &repoContentGetOptions)
 	prom.InstrumentGhCall(resp)
 	if err != nil && resp.StatusCode != 404 {
 		ghPrClientDetails.PrLogger.Errorf("Could not fetch source directory SHA err=%s\n%v\n", err, resp)
-		return err
+		return "", err
 	} else if err == nil { // scaning the parent dir
 		for _, dirElement := range directoryContent {
-			if *dirElement.Path == sourcePath {
-				sourcePathSHA = *dirElement.SHA
+			if *dirElement.Path == dirPath {
+				direcotyGitObjectSha = *dirElement.SHA
 				break
 			}
 		}
 	} // leaving out statusCode 404, this means the whole parent dir is missing, but the behavior is similar to the case we didn't find the dir
+
+	return direcotyGitObjectSha, nil
+}
+
+func GenerateSyncTreeEntriesForCommit(treeEntries *[]*github.TreeEntry, ghPrClientDetails GhPrClientDetails, sourcePath string, targetPath string, defaultBranch string) error {
+	sourcePathSHA, err := getDirecotyGitObjectSha(ghPrClientDetails, sourcePath, defaultBranch)
 
 	if sourcePathSHA == "" {
 		ghPrClientDetails.PrLogger.Infoln("Source directory wasn't found, assuming a deletion PR")
@@ -554,7 +574,7 @@ func GenerateSyncTreeEntriesForCommit(treeEntries *[]*github.TreeEntry, ghPrClie
 
 		for filename := range targetFilesSHAs {
 			if _, found := sourceFilesSHAs[filename]; !found {
-				ghPrClientDetails.PrLogger.Infof("%s -- was NOT found on %s, marking as a deletion!", filename, sourcePath)
+				ghPrClientDetails.PrLogger.Debugf("%s -- was NOT found on %s, marking as a deletion!", filename, sourcePath)
 				fileDeleteTreeEntry := github.TreeEntry{
 					Path:    github.String(targetPath + "/" + filename),
 					Mode:    github.String("100644"),

@@ -39,7 +39,8 @@ func event(eventType string, eventFilePath string) {
 	}
 
 	mainGithubClient, githubGraphQlClient, prApproverGithubClient := githubapi.CreateAllClients(ctx)
-	githubapi.HandleEvent(eventType, payload, mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx)
+	botIdentity, _ := githubapi.GetBotGhIdentity(githubGraphQlClient, ctx)
+	githubapi.HandleEvent(eventType, payload, mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx, botIdentity)
 }
 
 func getEnv(key, fallback string) string {
