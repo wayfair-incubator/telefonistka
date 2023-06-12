@@ -152,7 +152,7 @@ func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string,
 		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
 		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
 	} else {
-		log.Infof("Using public Github API endpoint")
+		log.Debugf("Using public Github API endpoint")
 	}
 
 	githubAppInstallationId, err := getAppInstallationId(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx, owner)
@@ -179,7 +179,7 @@ func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientP
 		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
 		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
 	} else {
-		log.Infof("Using public Github API endpoint")
+		log.Debugf("Using public Github API endpoint")
 	}
 
 	// ghClientPair.v3Client := CreateGithubRestClient(ghOauthToken, githubRestAltURL, ctx)
@@ -198,7 +198,7 @@ func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPa
 		if keyExist {
 			log.Debugf("Found cached client for %s", repoOwner)
 		} else {
-			log.Debugf("Did not found cached client for %s, creating one", repoOwner)
+			log.Infof("Did not found cached client for %s, creating one with %s/%s env vars", repoOwner, ghAppIdEnvVarName, ghAppPKeyPathEnvVarName)
 			githubAppIdint, err := strconv.ParseInt(githubAppId, 10, 64)
 			if err != nil {
 				log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
@@ -211,7 +211,7 @@ func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPa
 		if keyExist {
 			log.Debug("Found global cached client")
 		} else {
-			log.Debug("Did not found global cached client, creating one")
+			log.Info("Did not found global cached client, creating one with %s env var", ghOauthTokenEnvVarName)
 			ghOauthToken := getCrucialEnv(ghOauthTokenEnvVarName)
 
 			*gcp = createGhTokenClientPair(ctx, ghOauthToken)
