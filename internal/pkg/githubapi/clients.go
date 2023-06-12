@@ -9,6 +9,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v52/github"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -30,7 +31,12 @@ func getCrucialEnv(key string) string {
 	return ""
 }
 
-func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context) (int64, error) {
+type GhClientPair struct {
+	v3Client *github.Client
+	v4Client *githubv4.Client
+}
+
+func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, githubRestAltURL string, ctx context.Context, owner string) (int64, error) {
 	atr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, githubAppId, githubAppPrivateKeyPath)
 	if err != nil {
 		panic(err)
@@ -61,10 +67,16 @@ func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, git
 		log.Fatalf("failed to list installations: %v\n", err)
 	}
 
-	installID := installations[0].GetID()
-	log.Infof("Installation ID for GitHub Application # %v is: %v", githubAppId, installID)
+	var installID int64
+	for _, i := range installations {
+		if *i.Account.Login == owner {
+			installID = i.GetID()
+			log.Infof("Installation ID for GitHub Application # %v is: %v", githubAppId, installID)
+			return installID, nil
+		}
+	}
 
-	return installID, err
+	return 0, err
 }
 
 func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64, githubAppInstallationId int64, githubRestAltURL string, ctx context.Context) *github.Client {
@@ -127,15 +139,13 @@ func createGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL stri
 	}
 	return client
 }
+func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string, ghAppPKeyPathEnvVarName string) GhClientPair {
 
-func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *github.Client) {
-	var mainGithubClient *github.Client
-	var githubGraphQlClient *githubv4.Client
-
-	githubAppPrivateKeyPath := getEnv("GITHUB_APP_PRIVATE_KEY_PATH", "")
-	githubHost := getEnv("GITHUB_HOST", "")
+	// var ghClientPair *GhClientPair
 	var githubRestAltURL string
 	var githubGraphqlAltURL string
+	githubAppPrivateKeyPath := getCrucialEnv(ghAppPKeyPathEnvVarName)
+	githubHost := getEnv("GITHUB_HOST", "")
 	if githubHost != "" {
 		githubRestAltURL = "https://" + githubHost + "/api/v3"
 		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
@@ -144,26 +154,72 @@ func CreateAllClients(ctx context.Context) (*github.Client, *githubv4.Client, *g
 	} else {
 		log.Infof("Using public Github API endpoint")
 	}
-	if githubAppPrivateKeyPath != "" {
-		log.Infoln("Using GH app auth")
 
-		githubAppId, err := strconv.ParseInt(getCrucialEnv("GITHUB_APP_ID"), 10, 64)
-		if err != nil {
-			log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
-		}
-		githubAppInstallationId, err := getAppInstallationId(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx)
-		if err != nil {
-			log.Fatalf("Could not get GitHub Application Installation ID: %v", err)
-		}
-
-		mainGithubClient = createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
-		githubGraphQlClient = createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx)
-	} else {
-		mainGithubClient = CreateGithubRestClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
-		githubGraphQlClient = createGithubGraphQlClient(getCrucialEnv("GITHUB_OAUTH_TOKEN"), githubGraphqlAltURL)
+	githubAppInstallationId, err := getAppInstallationId(githubAppPrivateKeyPath, githubAppId, githubRestAltURL, ctx, owner)
+	if err != nil {
+		log.Errorf("Couldn't find installation for app ID %v and repo owner %s", githubAppId, owner)
 	}
 
-	prApproverGithubClient := CreateGithubRestClient(getCrucialEnv("APPROVER_GITHUB_OAUTH_TOKEN"), githubRestAltURL, ctx)
+	// ghClientPair.v3Client := createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
+	// ghClientPair.v4Client := createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx)
+	return GhClientPair{
+		v3Client: createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx),
+		v4Client: createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx),
+	}
 
-	return mainGithubClient, githubGraphQlClient, prApproverGithubClient
+}
+
+func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientPair {
+	// var ghClientPair *GhClientPair
+	var githubRestAltURL string
+	var githubGraphqlAltURL string
+	githubHost := getEnv("GITHUB_HOST", "")
+	if githubHost != "" {
+		githubRestAltURL = "https://" + githubHost + "/api/v3"
+		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
+		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
+		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
+	} else {
+		log.Infof("Using public Github API endpoint")
+	}
+
+	// ghClientPair.v3Client := CreateGithubRestClient(ghOauthToken, githubRestAltURL, ctx)
+	// ghClientPair.v4Client := createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL)
+	return GhClientPair{
+		v3Client: CreateGithubRestClient(ghOauthToken, githubRestAltURL, ctx),
+		v4Client: createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL),
+	}
+
+}
+
+func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPair], ghAppIdEnvVarName string, ghAppPKeyPathEnvVarName string, ghOauthTokenEnvVarName string, repoOwner string, ctx context.Context) {
+
+	githubAppId := getEnv(ghAppIdEnvVarName, "")
+	var keyExist bool
+	if githubAppId != "" {
+		*gcp, keyExist = ghClientCache.Get(repoOwner)
+		if keyExist {
+			log.Debugf("Found cached client for %s", repoOwner)
+		} else {
+			log.Debugf("Did not found cached client for %s, creating one", repoOwner)
+			githubAppIdint, err := strconv.ParseInt(githubAppId, 10, 64)
+			if err != nil {
+				log.Fatalf("GITHUB_APP_ID value could not converted to int64, %v", err)
+			}
+			*gcp = createGhAppClientPair(ctx, githubAppIdint, repoOwner, ghAppPKeyPathEnvVarName)
+			ghClientCache.Add(repoOwner, *gcp)
+		}
+	} else {
+		*gcp, keyExist = ghClientCache.Get("global")
+		if keyExist {
+			log.Debug("Found global cached client")
+		} else {
+			log.Debug("Did not found global cached client, creating one")
+			ghOauthToken := getCrucialEnv(ghOauthTokenEnvVarName)
+
+			*gcp = createGhTokenClientPair(ctx, ghOauthToken)
+			ghClientCache.Add("global", *gcp)
+		}
+	}
+
 }

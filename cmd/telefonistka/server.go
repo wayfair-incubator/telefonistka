@@ -8,8 +8,8 @@ import (
 
 	"github.com/alexliesenfeld/health"
 	"github.com/google/go-github/v52/github"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
@@ -39,10 +39,7 @@ func init() { //nolint:gochecknoinits
 	rootCmd.AddCommand(serveCmd)
 }
 
-func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, githubWebhookSecret []byte) func(http.ResponseWriter, *http.Request) {
-	if mainGithubClient == nil {
-		panic("nil GH session!")
-	}
+func handleWebhook(ctx context.Context, githubWebhookSecret []byte, mainGhClientCache *lru.Cache[string, githubapi.GhClientPair], prApproverGhClientCache *lru.Cache[string, githubapi.GhClientPair]) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// payload, err := ioutil.ReadAll(r.Body)
@@ -54,37 +51,22 @@ func handleWebhook(mainGithubClient *github.Client, prApproverGithubClient *gith
 		}
 		eventType := github.WebHookType(r)
 
-		githubapi.HandleEvent(eventType, payload, mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx)
+		githubapi.HandleEvent(eventType, payload, ctx, mainGhClientCache, prApproverGhClientCache)
 	}
 }
 
 func serve() {
 	ctx := context.Background()
-	mainGithubClient, githubGraphQlClient, prApproverGithubClient := githubapi.CreateAllClients(ctx)
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
-	readinessChecker := health.NewChecker(
-		health.WithPeriodicCheck(30*time.Second, 0*time.Second, health.Check{
-			// This is mainly meant to protect against a deployment with bad secret but could also allow monitoring on token expiry
-			// A side benefit of this is that we can get an up-to-date  ratelimit usage metrics, at a relatively small waste of rate usage
-			Name: "GitHub connectivity",
-			Check: func(ctx context.Context) error {
-				_, resp, err := mainGithubClient.APIMeta(ctx)
-				prom.InstrumentGhCall(resp)
-				if err != nil {
-					log.Errorf("Liveness Check: Failed to access GH API:\nerr=%s\nresponse=%v", err, resp)
-				} else {
-					log.Debugln("Liveness Check: GH API check is OK")
-				}
-				return err
-			},
-			Timeout: 10 * time.Second,
-		},
-		),
-	)
+	readinessChecker := health.NewChecker()
+
+	// mainGhClientCache := map[string]githubapi.GhClientPair{} //GH apps use a per-account/org client
+	mainGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
+	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/webhook", handleWebhook(mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx, githubWebhookSecret))
+	mux.HandleFunc("/webhook", handleWebhook(ctx, githubWebhookSecret, mainGhClientCache, prApproverGhClientCache))
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/live", health.NewHandler(livenessChecker))
 	mux.Handle("/ready", health.NewHandler(readinessChecker))
