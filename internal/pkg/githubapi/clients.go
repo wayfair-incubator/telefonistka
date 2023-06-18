@@ -191,6 +191,7 @@ func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientP
 }
 
 func (gcp *GhClientPair) GetAndCache(ghClientCache *lru.Cache[string, GhClientPair], ghAppIdEnvVarName string, ghAppPKeyPathEnvVarName string, ghOauthTokenEnvVarName string, repoOwner string, ctx context.Context) {
+
 	githubAppId := getEnv(ghAppIdEnvVarName, "")
 	var keyExist bool
 	if githubAppId != "" {

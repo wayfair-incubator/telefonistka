@@ -133,6 +133,7 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 	}
 	eventType := github.WebHookType(r)
 
+
 	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
 	if err != nil {
 		log.Errorf("could not parse webhook: err=%s\n", err)
@@ -171,6 +172,7 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 		approverGithubClientPair.GetAndCache(prApproverGhClientCache, "APPROVER_GITHUB_APP_ID", "APPROVER_GITHUB_APP_PRIVATE_KEY_PATH", "APPROVER_GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
+
 		ghPrClientDetails := GhPrClientDetails{
 			Ctx:      ctx,
 			Ghclient: mainGithubClientPair.v3Client,
@@ -184,11 +186,13 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 			PrSHA:    *eventPayload.PullRequest.Head.SHA,
 		}
 
+
 		HandlePREvent(eventPayload, ghPrClientDetails, mainGithubClientPair, approverGithubClientPair, ctx)
 
 	case *github.IssueCommentEvent:
 		repoOwner := *eventPayload.Repo.Owner.Login
 		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+
 		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
 		log.Infof("Actionable event type %s\n", eventType)
 		prLogger := log.WithFields(log.Fields{
