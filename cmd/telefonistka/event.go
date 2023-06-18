@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
@@ -38,9 +39,9 @@ func event(eventType string, eventFilePath string) {
 		panic(err)
 	}
 
-	mainGithubClient, githubGraphQlClient, prApproverGithubClient := githubapi.CreateAllClients(ctx)
-	botIdentity, _ := githubapi.GetBotGhIdentity(githubGraphQlClient, ctx)
-	githubapi.HandleEvent(eventType, payload, mainGithubClient, prApproverGithubClient, githubGraphQlClient, ctx, botIdentity)
+	mainGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
+	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
+	githubapi.HandleEvent(eventType, payload, ctx, mainGhClientCache, prApproverGhClientCache)
 }
 
 func getEnv(key, fallback string) string {

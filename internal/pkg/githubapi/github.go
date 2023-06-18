@@ -13,7 +13,7 @@ import (
 	"text/template"
 
 	"github.com/google/go-github/v52/github"
-	"github.com/shurcooL/githubv4"
+	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
@@ -59,7 +59,7 @@ func (pm prMetadata) serialize() (string, error) {
 	return base64.StdEncoding.EncodeToString(pmJson), nil
 }
 
-func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Client, prApproverGithubClient *github.Client, githubGraphQlClient *githubv4.Client, ctx context.Context, botIdentity string) {
+func HandleEvent(eventType string, payload []byte, ctx context.Context, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair]) {
 	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
 	if err != nil {
 		log.Errorf("could not parse webhook: err=%s\n", err)
@@ -67,6 +67,8 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		return
 	}
 	prom.InstrumentWebhookHit("successful")
+	var mainGithubClientPair GhClientPair
+	var approverGithubClientPair GhClientPair
 
 	switch eventPayload := eventPayloadInterface.(type) {
 	case *github.PushEvent:
@@ -80,11 +82,16 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 			"prNumber": *eventPayload.PullRequest.Number,
 		})
 
+		repoOwner := *eventPayload.Repo.Owner.Login
+
+		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+		approverGithubClientPair.getAndCache(prApproverGhClientCache, "APPROVER_GITHUB_APP_ID", "APPROVER_GITHUB_APP_PRIVATE_KEY_PATH", "APPROVER_GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+
 		ghPrClientDetails := GhPrClientDetails{
 			Ctx:      ctx,
-			Ghclient: mainGithubClient,
+			Ghclient: mainGithubClientPair.v3Client,
 			Labels:   eventPayload.PullRequest.Labels,
-			Owner:    *eventPayload.Repo.Owner.Login,
+			Owner:    repoOwner,
 			Repo:     *eventPayload.Repo.Name,
 			PrNumber: *eventPayload.PullRequest.Number,
 			Ref:      *eventPayload.PullRequest.Head.Ref,
@@ -113,7 +120,7 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
 			SetCommitStatus(ghPrClientDetails, "pending")
 			wasCommitStatusSet = true
-			err := handleMergedPrEvent(ghPrClientDetails, prApproverGithubClient)
+			err := handleMergedPrEvent(ghPrClientDetails, approverGithubClientPair.v3Client)
 			if err != nil {
 				prHandleError = err
 				ghPrClientDetails.PrLogger.Errorf("Handling of merged PR failed: err=%s\n", err)
@@ -121,7 +128,8 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
 			SetCommitStatus(ghPrClientDetails, "pending")
 			wasCommitStatusSet = true
-			err = MimizeStalePrComments(ghPrClientDetails, githubGraphQlClient, botIdentity)
+			botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
+			err = MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
 			if err != nil {
 				prHandleError = err
 				log.Errorf("Failed to minimize stale comments: err=%s\n", err)
@@ -155,22 +163,24 @@ func HandleEvent(eventType string, payload []byte, mainGithubClient *github.Clie
 		}
 
 	case *github.IssueCommentEvent:
-		log.Infof("Actionable event type %s (by %s )", eventType, *eventPayload.Comment.User.Login)
+		repoOwner := *eventPayload.Repo.Owner.Login
+		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
+		log.Infof("Actionable event type %s\n", eventType)
+		prLogger := log.WithFields(log.Fields{
+			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
+			"prNumber": *eventPayload.Issue.Number,
+		})
 		if *eventPayload.Comment.User.Login != botIdentity {
-			prLogger := log.WithFields(log.Fields{
-				"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
-				"prNumber": *eventPayload.Issue.Number,
-			})
 			ghPrClientDetails := GhPrClientDetails{
 				Ctx:      ctx,
-				Ghclient: mainGithubClient,
-				Owner:    *eventPayload.Repo.Owner.Login,
+				Ghclient: mainGithubClientPair.v3Client,
+				Owner:    repoOwner,
 				Repo:     *eventPayload.Repo.Name,
 				PrNumber: *eventPayload.Issue.Number,
 				PrAuthor: *eventPayload.Issue.User.Login,
 				PrLogger: prLogger,
 			}
-
 			_ = handleCommentPrEvent(ghPrClientDetails, eventPayload)
 		} else {
 			log.Debug("Ignoring self comment")
