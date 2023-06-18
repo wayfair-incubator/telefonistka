@@ -7,13 +7,11 @@ import (
 	"time"
 
 	"github.com/alexliesenfeld/health"
-	"github.com/google/go-github/v52/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
-	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 )
 
 func getCrucialEnv(key string) string {
@@ -41,16 +39,7 @@ func init() { //nolint:gochecknoinits
 
 func handleWebhook(ctx context.Context, githubWebhookSecret []byte, mainGhClientCache *lru.Cache[string, githubapi.GhClientPair], prApproverGhClientCache *lru.Cache[string, githubapi.GhClientPair]) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// payload, err := ioutil.ReadAll(r.Body)
-		payload, err := github.ValidatePayload(r, githubWebhookSecret)
-		if err != nil {
-			log.Errorf("error reading request body: err=%s\n", err)
-			prom.InstrumentWebhookHit("validation_failed")
-			return
-		}
-		eventType := github.WebHookType(r)
-
-		githubapi.HandleEvent(eventType, payload, ctx, mainGhClientCache, prApproverGhClientCache)
+		githubapi.HandleEvent(r, ctx, mainGhClientCache, prApproverGhClientCache, githubWebhookSecret)
 	}
 }
 

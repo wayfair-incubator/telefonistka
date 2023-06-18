@@ -121,6 +121,28 @@ telefonistka bump-overwrite \
 It currently supports full file overwrite and regex based replacement.
 See [here](docs/version_bumping.md) for more details
 
+### GitHub Push events fanout/multiplexing
+
+Some GitOps operators can listen for GitHub webhooks to ensure short delays in the reconciliation loop.
+
+But in some scenarios the number of needed webhooks endpoint exceed the maximum supported by GitHub(think 10 cluster each with in-cluster ArgoCD server and ArgoCD applicationSet controller).
+
+Telefonistka can forward these HTTP requests to multiple endpoint and can even filter or dynamically choose the endpoint URL based on the file changed in the Commit.
+
+```yaml
+webhookEndpointRegexs:
+  - expression: "^workspace\/[^/]*\/.*"
+    replacements:
+      - "https://lab-argocd-server.example.com/webhook"
+      - "https://lab-argocd-applicationset.example.com/webhook"
+
+  - expression: "^clusters\/([^/]*)\/([^/]*)\/([^/]*)\/.*"
+    replacements:
+      - "https://${1}-${2}-${3}-argocd-server.example.com/webhook"
+      - "https://${1}-${2}-${3}-argocd-applicationset.example.com/webhook"
+
+```
+
 ## Installation and Configuration
 
 See [here](docs/installation.md)
