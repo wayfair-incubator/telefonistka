@@ -149,7 +149,7 @@ func HandleEvent(eventType string, payload []byte, ctx context.Context, mainGhCl
 			if err != nil {
 				ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
 			} else {
-				promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
+				promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, ghPrClientDetails.Ref)
 				commentPlanInPR(ghPrClientDetails, promotions)
 			}
 		}
