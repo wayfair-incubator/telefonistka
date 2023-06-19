@@ -55,20 +55,20 @@ func generateListOfEndpoints(listOfChangedFiles []string, config *configuration.
 	return maps.Keys(endpoints)
 }
 
-func proxyRequest(ctx context.Context, httpRequest *http.Request, endpoint string, responses chan<- string) {
+func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, endpoint string, responses chan<- string) {
 	client := &http.Client{}
-	body, err := io.ReadAll(httpRequest.Body)
+	body, err := io.ReadAll(originalHttpRequest.Body)
 	if err != nil {
 		log.Errorf("Failed to read WH request body: %v", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, httpRequest.Method, endpoint, bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, originalHttpRequest.Method, endpoint, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating request to %s: %v", endpoint, err)
 		responses <- fmt.Sprintf("Failed to create request to %s", endpoint)
 		return
 	}
-	req.Header = httpRequest.Header.Clone()
-	// because payload and headers are passed as-is, I'm hoping webhook signature validation will "just work"
+	req.Header = originalHttpRequest.Header.Clone()
+	// Because payload and headers are passed as-is, I'm hoping webhook signature validation will "just work"
 
 	resp, err := client.Do(req)
 	if err != nil {
