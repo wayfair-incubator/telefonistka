@@ -68,6 +68,7 @@ func proxyRequest(ctx context.Context, httpRequest *http.Request, endpoint strin
 		return
 	}
 	req.Header = httpRequest.Header.Clone()
+	// because payload and headers are passed as-is, I'm hoping webhook signature validation will "just work"
 
 	resp, err := client.Do(req)
 	if err != nil {

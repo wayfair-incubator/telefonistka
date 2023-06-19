@@ -129,6 +129,8 @@ But in some scenarios the number of needed webhooks endpoint exceed the maximum 
 
 Telefonistka can forward these HTTP requests to multiple endpoint and can even filter or dynamically choose the endpoint URL based on the file changed in the Commit.
 
+This example configuration includes regex bases endpoint URL generation:
+
 ```yaml
 webhookEndpointRegexs:
   - expression: "^workspace\/[^/]*\/.*"
@@ -142,6 +144,8 @@ webhookEndpointRegexs:
       - "https://${1}-${2}-${3}-argocd-applicationset.example.com/webhook"
 
 ```
+
+see [here](docs/webhook_multiplexing.md) for more details
 
 ## Installation and Configuration
 
