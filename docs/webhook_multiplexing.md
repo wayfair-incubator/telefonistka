@@ -8,9 +8,7 @@ Additionlly, configuring said webhooks manually is time consuming and error pron
 Telefonistka can forward these HTTP requests to multiple endpoint and can even filter or dynamically choose the endpoint URL based on the file changed in the Commit.
 Assuming Telefonistka is deployed as a GitHub Application, this also ease the setup process as the webhook setting(event types, URL, secret) is already a part of the application configuration.
 
-
 This configuration exmple will forward github push events that include changes in `workspace/` dir to the lab argocd server and  applicationset controllers webhook servers and will forward event  that touchs `clusters/`to URLs generated with regex, base of first 3 directiry elements after `clusters/`
-
 
 ```yaml
 webhookEndpointRegexs:
@@ -29,7 +27,6 @@ webhookEndpointRegexs:
 Telefonistka checks the regex per each file affected by a commit, but stops after the first expression match(per file).
 
 So ordering of the `webhookEndpointRegexs` elements is significant.
-
 
 This simpeller configuration will and push event to 7 hardcoded servers
 
