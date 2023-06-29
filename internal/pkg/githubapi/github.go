@@ -186,7 +186,6 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 
 		HandlePREvent(eventPayload, ghPrClientDetails, mainGithubClientPair, approverGithubClientPair, ctx)
 
-
 	case *github.IssueCommentEvent:
 		repoOwner := *eventPayload.Repo.Owner.Login
 		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
