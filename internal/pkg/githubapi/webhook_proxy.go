@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-github/v52/github"
 	log "github.com/sirupsen/logrus"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
+	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 	"golang.org/x/exp/maps"
 )
 
@@ -78,6 +79,7 @@ func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, endpoi
 	}
 	defer resp.Body.Close()
 
+	_ = prom.InstrumentProxyUpstreamRequest(resp)
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Printf("Error reading response body from %s: %v", endpoint, err)
@@ -92,13 +94,12 @@ func handlePushEvent(ctx context.Context, eventPayload *github.PushEvent, httpRe
 	listOfChangedFiles := generateListOfChangedFiles(eventPayload)
 	log.Debugf("Changed files in push event: %v", listOfChangedFiles)
 
-	// TODO this need to be cached with TTL + invalidate if configfile in listOfChangedFiles?
-	// This is possible because these webhooks are defined as "best effort" for the designed use case:
-	// Speeding up ArgoCD reconcile loops
-
 	defaultBranch := eventPayload.Repo.DefaultBranch
 
 	if *eventPayload.Ref == "refs/heads/"+*defaultBranch {
+		// TODO this need to be cached with TTL + invalidate if configfile in listOfChangedFiles?
+		// This is possible because these webhooks are defined as "best effort" for the designed use case:
+		// Speeding up ArgoCD reconcile loops
 		config, _ := GetInRepoConfig(ghPrClientDetails, *defaultBranch)
 		endpoints := generateListOfEndpoints(listOfChangedFiles, config)
 

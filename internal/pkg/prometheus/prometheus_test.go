@@ -82,12 +82,38 @@ func TestApiUrl(t *testing.T) {
 	instrumentGhCallTestHelper(t, "/api/v3/repos/AnOwner/Arepo/contents/telefonistka.yaml", expectedLabels)
 }
 
-func instrumentGhCallTestHelper(t *testing.T, httpUrl string, expectedLabels prometheus.Labels) {
-	t.Helper()
-	mockUrl, _ := url.Parse("https://github.com/api/v3/content/foo/bar/file.txt")
+func TestInstrumentProxyUpstreamRequestLables(t *testing.T) {
+	t.Parallel()
+
+	mockURL, _ := url.Parse("https://argocd.example.com/webhook")
 
 	httpReq := &http.Request{
-		URL:    mockUrl,
+		URL:    mockURL,
+		Method: "POST",
+	}
+
+	httpResp := &http.Response{
+		Request:    httpReq,
+		StatusCode: 200,
+	}
+
+	expectedLabels := prometheus.Labels{
+		"status": "200",
+		"method": "POST",
+		"url":    "https://argocd.example.com/webhook",
+	}
+	labels := InstrumentProxyUpstreamRequest(httpResp)
+	if diff := deep.Equal(expectedLabels, labels); diff != nil {
+		t.Error(diff)
+	}
+}
+
+func instrumentGhCallTestHelper(t *testing.T, httpURL string, expectedLabels prometheus.Labels) {
+	t.Helper()
+	mockURL, _ := url.Parse("https://github.com/api/v3/content/foo/bar/file.txt")
+
+	httpReq := &http.Request{
+		URL:    mockURL,
 		Method: "GET",
 	}
 
@@ -99,8 +125,7 @@ func instrumentGhCallTestHelper(t *testing.T, httpUrl string, expectedLabels pro
 	resp := &github.Response{
 		Response: httpResp,
 	}
-
-	resp.Request.URL.Path = httpUrl
+	resp.Request.URL.Path = httpURL
 	labels := InstrumentGhCall(resp)
 
 	if diff := deep.Equal(expectedLabels, labels); diff != nil {
