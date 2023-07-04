@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/google/go-github/v52/github"
 	log "github.com/sirupsen/logrus"
@@ -78,7 +79,13 @@ func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, body [
 	defer resp.Body.Close()
 
 	_ = prom.InstrumentProxyUpstreamRequest(resp)
+
 	respBody, err := io.ReadAll(resp.Body)
+
+	if !strings.HasPrefix(resp.Status, "2") {
+		log.Errorf("Got non 2XX HTTP status from  %s: status=%s body=%v", endpoint, resp.Status, body)
+	}
+
 	if err != nil {
 		log.Errorf("Error reading response body from %s: %v", endpoint, err)
 		responses <- fmt.Sprintf("Failed to read response from %s", endpoint)
