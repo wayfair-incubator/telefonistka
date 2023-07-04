@@ -133,15 +133,15 @@ This example configuration includes regex bases endpoint URL generation:
 
 ```yaml
 webhookEndpointRegexs:
-  - expression: "^workspace\/[^/]*\/.*"
+  - expression: "^workspace/[^/]*/.*"
     replacements:
-      - "https://lab-argocd-server.example.com/webhook"
-      - "https://lab-argocd-applicationset.example.com/webhook"
-
-  - expression: "^clusters\/([^/]*)\/([^/]*)\/([^/]*)\/.*"
+      - "https://kube-argocd-c1.service.lab.example.com/api/webhoook"
+      - "https://kube-argocd-applicationset-c1.service.lab.example.com/api/webhoook"
+      - "https://example.com"
+  - expression: "^clusters/([^/]*)/([^/]*)/([^/]*)/.*"
     replacements:
-      - "https://${1}-${2}-${3}-argocd-server.example.com/webhook"
-      - "https://${1}-${2}-${3}-argocd-applicationset.example.com/webhook"
+      - "https://kube-argocd-${3}.${1}.service.{2}.example.com/api/webhoook"
+      - "https://kube-argocd-applicationset-${2}.service.${1}.example.com/api/webhoook"
 
 ```
 

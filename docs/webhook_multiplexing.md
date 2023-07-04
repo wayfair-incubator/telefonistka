@@ -12,15 +12,15 @@ This configuration exmple will forward github push events that include changes i
 
 ```yaml
 webhookEndpointRegexs:
-  - expression: "^workspace\/[^/]*\/.*"
+  - expression: "^workspace/[^/]*/.*"
     replacements:
-      - "https://lab-argocd-server.example.com/webhook"
-      - "https://lab-argocd-applicationset.example.com/webhook"
-
-  - expression: "^clusters\/([^/]*)\/([^/]*)\/([^/]*)\/.*"
+      - "https://kube-argocd-c1.service.lab.example.com/api/webhook"
+      - "https://kube-argocd-applicationset-c1.service.lab.example.com/api/webhook"
+      - "https://example.com"
+  - expression: "^clusters/([^/]*)/([^/]*)/([^/]*)/.*"
     replacements:
-      - "https://${1}-${2}-${3}-argocd-server.example.com/webhook"
-      - "https://${1}-${2}-${3}-argocd-applicationset.example.com/webhook"
+      - "https://kube-argocd-${3}.${1}.service.{2}.example.com/api/webhook"
+      - "https://kube-argocd-applicationset-${2}.service.${1}.example.com/api/webhook"
 
 ```
 
@@ -34,11 +34,11 @@ This simpeller configuration will and push event to 7 hardcoded servers
 webhookEndpointRegexs:
   - expression: "^.*$"
     replacements:
-      - "https://argocd-server1.example.com/webhook"
-      - "https://argocd-server2.example.com/webhook"
-      - "https://argocd-server3.example.com/webhook"
-      - "https://argocd-server4.example.com/webhook"
-      - "https://argocd-server5.example.com/webhook"
-      - "https://argocd-server6.example.com/webhook"
-      - "https://argocd-server6.example.com/webhook"
+      - "https://argocd-server1.example.com/api/webhook"
+      - "https://argocd-server2.example.com/api/webhook"
+      - "https://argocd-server3.example.com/api/webhook"
+      - "https://argocd-server4.example.com/api/webhook"
+      - "https://argocd-server5.example.com/api/webhook"
+      - "https://argocd-server6.example.com/api/webhook"
+      - "https://argocd-server6.example.com/api/webhook"
 ```
