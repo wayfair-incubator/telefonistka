@@ -150,14 +150,19 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 		repoOwner := *eventPayload.Repo.Owner.Login
 		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
+		prLogger := log.WithFields(log.Fields{
+			"event_type": "push",
+		})
+
 		ghPrClientDetails := GhPrClientDetails{
 			Ctx:      ctx,
 			Ghclient: mainGithubClientPair.v3Client,
 			Owner:    repoOwner,
 			Repo:     *eventPayload.Repo.Name,
+			PrLogger: prLogger,
 		}
 
-		handlePushEvent(ctx, eventPayload, r, ghPrClientDetails)
+		handlePushEvent(ctx, eventPayload, r, payload, ghPrClientDetails)
 	case *github.PullRequestEvent:
 		log.Infof("is PullRequestEvent(%s)", *eventPayload.Action)
 

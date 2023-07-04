@@ -56,12 +56,8 @@ func generateListOfEndpoints(listOfChangedFiles []string, config *configuration.
 	return maps.Keys(endpoints)
 }
 
-func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, endpoint string, responses chan<- string) {
+func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, body []byte, endpoint string, responses chan<- string) {
 	client := &http.Client{}
-	body, err := io.ReadAll(originalHttpRequest.Body)
-	if err != nil {
-		log.Errorf("Failed to read WH request body: %v", err)
-	}
 	req, err := http.NewRequestWithContext(ctx, originalHttpRequest.Method, endpoint, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating request to %s: %v", endpoint, err)
@@ -73,16 +69,18 @@ func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, endpoi
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error proxying request to %s: %v", endpoint, err)
+		log.Errorf("Error proxying request to %s: %v", endpoint, err)
 		responses <- fmt.Sprintf("Failed to proxy request to %s", endpoint)
 		return
+	} else {
+		log.Debugf("Webhook successfully forwarded to %s", endpoint)
 	}
 	defer resp.Body.Close()
 
 	_ = prom.InstrumentProxyUpstreamRequest(resp)
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Error reading response body from %s: %v", endpoint, err)
+		log.Errorf("Error reading response body from %s: %v", endpoint, err)
 		responses <- fmt.Sprintf("Failed to read response from %s", endpoint)
 		return
 	}
@@ -90,7 +88,7 @@ func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, endpoi
 	responses <- string(respBody)
 }
 
-func handlePushEvent(ctx context.Context, eventPayload *github.PushEvent, httpRequest *http.Request, ghPrClientDetails GhPrClientDetails) {
+func handlePushEvent(ctx context.Context, eventPayload *github.PushEvent, httpRequest *http.Request, payload []byte, ghPrClientDetails GhPrClientDetails) {
 	listOfChangedFiles := generateListOfChangedFiles(eventPayload)
 	log.Debugf("Changed files in push event: %v", listOfChangedFiles)
 
@@ -112,7 +110,7 @@ func handlePushEvent(ctx context.Context, eventPayload *github.PushEvent, httpRe
 
 		// Start a goroutine for each endpoint
 		for _, endpoint := range endpoints {
-			go proxyRequest(ctx, httpRequest, endpoint, responses)
+			go proxyRequest(ctx, httpRequest, payload, endpoint, responses)
 		}
 
 		// Wait for all goroutines to finish and collect the responses
