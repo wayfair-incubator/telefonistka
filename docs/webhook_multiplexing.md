@@ -3,12 +3,15 @@
 GitOps operators like ArgoCD can listen for GitHub webhooks to ensure short delays in their reconciliation loop.
 
 But in some scenarios the number of needed webhooks endpoint exceed the maximum supported by GitHub(think 10 cluster each with in-cluster ArgoCD server and ArgoCD applicationSet controller).
-Additionlly, configuring said webhooks manually is time consuming and error prone.
+Additionally, configuring said webhooks manually is time consuming and error prone.
 
 Telefonistka can forward these HTTP requests to multiple endpoint and can even filter or dynamically choose the endpoint URL based on the file changed in the Commit.
 Assuming Telefonistka is deployed as a GitHub Application, this also ease the setup process as the webhook setting(event types, URL, secret) is already a part of the application configuration.
 
-This configuration exmple will forward github push events that include changes in `workspace/` dir to the lab argocd server and  applicationset controllers webhook servers and will forward event  that touchs `clusters/`to URLs generated with regex, base of first 3 directiry elements after `clusters/`
+This configuration example will forward github push events that include changes in `workspace/` dir to the lab ArgoCD server and  applicationset controllers webhook servers and will forward event  that touches `clusters/`to URLs generated with regex, base of first 3 directory elements after `clusters/`
+
+
+
 
 ```yaml
 webhookEndpointRegexs:
