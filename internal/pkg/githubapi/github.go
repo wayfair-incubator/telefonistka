@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"path"
 	"regexp"
 	"sort"
@@ -59,7 +60,79 @@ func (pm prMetadata) serialize() (string, error) {
 	return base64.StdEncoding.EncodeToString(pmJson), nil
 }
 
-func HandleEvent(eventType string, payload []byte, ctx context.Context, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair]) {
+func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPrClientDetails, mainGithubClientPair GhClientPair, approverGithubClientPair GhClientPair, ctx context.Context) {
+	prMetadataRegex := regexp.MustCompile(`<!--\|.*\|(.*)\|-->`)
+	serializedPrMetadata := prMetadataRegex.FindStringSubmatch(eventPayload.PullRequest.GetBody())
+	if len(serializedPrMetadata) == 2 {
+		if serializedPrMetadata[1] != "" {
+			ghPrClientDetails.PrLogger.Info("Found PR metadata")
+			err := ghPrClientDetails.PrMetadata.DeSerialize(serializedPrMetadata[1])
+			if err != nil {
+				ghPrClientDetails.PrLogger.Errorf("Fail to parser PR metadata %v", err)
+			}
+		}
+	}
+
+	// wasCommitStatusSet and the placement of SetCommitStatus in the flow is used to ensure an API call is only made where it needed
+	wasCommitStatusSet := false
+
+	var prHandleError error
+
+	if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
+		SetCommitStatus(ghPrClientDetails, "pending")
+		wasCommitStatusSet = true
+		err := handleMergedPrEvent(ghPrClientDetails, approverGithubClientPair.v3Client)
+		if err != nil {
+			prHandleError = err
+			ghPrClientDetails.PrLogger.Errorf("Handling of merged PR failed: err=%s\n", err)
+		}
+	} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
+		SetCommitStatus(ghPrClientDetails, "pending")
+		wasCommitStatusSet = true
+		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
+		err := MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
+		if err != nil {
+			prHandleError = err
+			log.Errorf("Failed to minimize stale comments: err=%s\n", err)
+		}
+		ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
+		err = DetectDrift(ghPrClientDetails)
+		if err != nil {
+			prHandleError = err
+			ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
+		}
+	} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
+		SetCommitStatus(ghPrClientDetails, "pending")
+		wasCommitStatusSet = true
+		ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
+		defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+		config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+		if err != nil {
+			ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
+		} else {
+			promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
+			commentPlanInPR(ghPrClientDetails, promotions)
+		}
+	}
+
+	if wasCommitStatusSet {
+		if prHandleError == nil {
+			SetCommitStatus(ghPrClientDetails, "success")
+		} else {
+			SetCommitStatus(ghPrClientDetails, "error")
+		}
+	}
+}
+
+func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair], githubWebhookSecret []byte) {
+	payload, err := github.ValidatePayload(r, githubWebhookSecret)
+	if err != nil {
+		log.Errorf("error reading request body: err=%s\n", err)
+		prom.InstrumentWebhookHit("validation_failed")
+		return
+	}
+	eventType := github.WebHookType(r)
+
 	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
 	if err != nil {
 		log.Errorf("could not parse webhook: err=%s\n", err)
@@ -74,6 +147,22 @@ func HandleEvent(eventType string, payload []byte, ctx context.Context, mainGhCl
 	case *github.PushEvent:
 		// this is a commit push, do something with it?
 		log.Infoln("is PushEvent")
+		repoOwner := *eventPayload.Repo.Owner.Login
+		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+
+		prLogger := log.WithFields(log.Fields{
+			"event_type": "push",
+		})
+
+		ghPrClientDetails := GhPrClientDetails{
+			Ctx:      ctx,
+			Ghclient: mainGithubClientPair.v3Client,
+			Owner:    repoOwner,
+			Repo:     *eventPayload.Repo.Name,
+			PrLogger: prLogger,
+		}
+
+		handlePushEvent(ctx, eventPayload, r, payload, ghPrClientDetails)
 	case *github.PullRequestEvent:
 		log.Infof("is PullRequestEvent(%s)", *eventPayload.Action)
 
@@ -100,71 +189,12 @@ func HandleEvent(eventType string, payload []byte, ctx context.Context, mainGhCl
 			PrSHA:    *eventPayload.PullRequest.Head.SHA,
 		}
 
-		prMetadataRegex := regexp.MustCompile(`<!--\|.*\|(.*)\|-->`)
-		serializedPrMetadata := prMetadataRegex.FindStringSubmatch(eventPayload.PullRequest.GetBody())
-		if len(serializedPrMetadata) == 2 {
-			if serializedPrMetadata[1] != "" {
-				ghPrClientDetails.PrLogger.Info("Found PR metadata")
-				err = ghPrClientDetails.PrMetadata.DeSerialize(serializedPrMetadata[1])
-				if err != nil {
-					ghPrClientDetails.PrLogger.Errorf("Fail to parser PR metadata %v", err)
-				}
-			}
-		}
-
-		// wasCommitStatusSet and the placement of SetCommitStatus in the flow is used to ensure an API call is only made where it needed
-		wasCommitStatusSet := false
-
-		var prHandleError error
-
-		if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
-			SetCommitStatus(ghPrClientDetails, "pending")
-			wasCommitStatusSet = true
-			err := handleMergedPrEvent(ghPrClientDetails, approverGithubClientPair.v3Client)
-			if err != nil {
-				prHandleError = err
-				ghPrClientDetails.PrLogger.Errorf("Handling of merged PR failed: err=%s\n", err)
-			}
-		} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
-			SetCommitStatus(ghPrClientDetails, "pending")
-			wasCommitStatusSet = true
-			botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
-			err = MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
-			if err != nil {
-				prHandleError = err
-				log.Errorf("Failed to minimize stale comments: err=%s\n", err)
-			}
-			ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
-			err := DetectDrift(ghPrClientDetails)
-			if err != nil {
-				prHandleError = err
-				ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
-			}
-		} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
-			SetCommitStatus(ghPrClientDetails, "pending")
-			wasCommitStatusSet = true
-			ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
-			defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
-			config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
-			if err != nil {
-				ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
-			} else {
-				promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, ghPrClientDetails.Ref)
-				commentPlanInPR(ghPrClientDetails, promotions)
-			}
-		}
-
-		if wasCommitStatusSet {
-			if prHandleError == nil {
-				SetCommitStatus(ghPrClientDetails, "success")
-			} else {
-				SetCommitStatus(ghPrClientDetails, "error")
-			}
-		}
+		HandlePREvent(eventPayload, ghPrClientDetails, mainGithubClientPair, approverGithubClientPair, ctx)
 
 	case *github.IssueCommentEvent:
 		repoOwner := *eventPayload.Repo.Owner.Login
 		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+
 		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
 		log.Infof("Actionable event type %s\n", eventType)
 		prLogger := log.WithFields(log.Fields{

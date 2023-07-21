@@ -1,7 +1,10 @@
 package telefonistka
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"net/http"
 	"os"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -39,9 +42,16 @@ func event(eventType string, eventFilePath string) {
 		panic(err)
 	}
 
+	// To use the same code path as for Webhook I'm creating an http request with the payload from the file.
+	// This might not be very smart.
+
+	h := http.Request{}
+	h.Body = io.NopCloser(bytes.NewReader(payload))
+	h.Header.Set("Content-Type", "application/json")
+
 	mainGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
-	githubapi.HandleEvent(eventType, payload, ctx, mainGhClientCache, prApproverGhClientCache)
+	githubapi.HandleEvent(&h, ctx, mainGhClientCache, prApproverGhClientCache, nil)
 }
 
 func getEnv(key, fallback string) string {
