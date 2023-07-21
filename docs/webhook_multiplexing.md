@@ -10,9 +10,6 @@ Assuming Telefonistka is deployed as a GitHub Application, this also ease the se
 
 This configuration example will forward github push events that include changes in `workspace/` dir to the lab ArgoCD server and  applicationset controllers webhook servers and will forward event  that touches `clusters/`to URLs generated with regex, base of first 3 directory elements after `clusters/`
 
-
-
-
 ```yaml
 webhookEndpointRegexs:
   - expression: "^workspace/[^/]*/.*"
