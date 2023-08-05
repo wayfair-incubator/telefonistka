@@ -48,7 +48,7 @@ func event(eventType string, eventFilePath string) {
 	h, _ := http.NewRequest("POST", "", nil) //nolint:noctx
 	h.Body = io.NopCloser(bytes.NewReader(payload))
 	h.Header.Set("Content-Type", "application/json")
-	h.Header.Set("X-GitHub-Event", "push")
+	h.Header.Set("X-GitHub-Event", "pull_request")
 
 	mainGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
