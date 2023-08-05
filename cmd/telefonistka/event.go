@@ -45,7 +45,7 @@ func event(eventType string, eventFilePath string) {
 	// To use the same code path as for Webhook I'm creating an http request with the payload from the file.
 	// This might not be very smart.
 
-	h, _ := http.NewRequest("POST", "", nil)
+	h, _ := http.NewRequest("POST", "", nil) //nolint:noctx
 	h.Body = io.NopCloser(bytes.NewReader(payload))
 	h.Header.Set("Content-Type", "application/json")
 	h.Header.Set("X-GitHub-Event", "push")
