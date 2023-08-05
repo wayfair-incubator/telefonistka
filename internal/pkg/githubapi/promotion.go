@@ -74,7 +74,7 @@ func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 	}
 	if len(diffOutputMap) != 0 {
 		var templateOutput bytes.Buffer
-		driftMsgTemplate, err := template.New("driftMsg").ParseFiles("templates/drift-pr-comment.gotmpl")
+		driftMsgTemplate, err := template.New("driftMsg").ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + "drift-pr-comment.gotmpl")
 		if err != nil {
 			ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
 			return err

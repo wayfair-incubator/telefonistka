@@ -75,6 +75,8 @@ Environment variables for the webhook process:
 
 `GITHUB_APP_ID` Application ID for Github applications style of deployments, available in the Github Application setting page.
 
+`TEMPLATES_PATH` Telefonistka uses Go templates to format GitHub PR comments, the variable override the default templates path("templates/"), useful for environments where the container workdir is overridden(like GitHub Actions) or when custom templates are desired.
+
 Behavior of the bot is configured by YAML files **in the target repo**:
 
 ## Repo Configuration
