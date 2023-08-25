@@ -247,7 +247,7 @@ func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 
 func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]PromotionInstance) {
 	var templateOutput bytes.Buffer
-	dryRunMsgTemplate, err := template.New("dryRunMsg").ParseFiles("templates/dry-run-pr-comment.gotmpl")
+	dryRunMsgTemplate, err := template.New("dryRunMsg").ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + "dry-run-pr-comment.gotmpl")
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
 	}
