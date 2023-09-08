@@ -110,7 +110,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 		if err != nil {
 			ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
 		} else {
-			promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
+			promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, *eventPayload.PullRequest.Head.Ref)
 			commentPlanInPR(ghPrClientDetails, promotions)
 		}
 	}
