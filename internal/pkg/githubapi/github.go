@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-github/v52/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
+	argocd "github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 )
@@ -100,6 +101,10 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 		if err != nil {
 			prHandleError = err
 			ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
+		}
+		if true { // TODO Make  ArgoCD intergration toggalble
+			prFiles, resp, err := ghPrClientDetails.Ghclient.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
+			argocd.ShowArgocdDiff(prFiles, config)
 		}
 	} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
 		SetCommitStatus(ghPrClientDetails, "pending")

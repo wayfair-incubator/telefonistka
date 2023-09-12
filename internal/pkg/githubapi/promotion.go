@@ -27,6 +27,11 @@ type PromotionInstanceMetaData struct {
 	ComponentNames                 []string
 }
 
+type relevantComponent struct {
+	SourcePath    string
+	ComponentName string
+}
+
 func containMatchingRegex(patterns []string, str string) bool {
 	for _, pattern := range patterns {
 		doesElementMatchPattern, err := regexp.MatchString(pattern, str)
@@ -117,22 +122,9 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 	return componentConfig, nil
 }
 
-func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
-	promotions := make(map[string]PromotionInstance)
+//Build a **unique** list of relevant directories
+func GenerateRelevantComponentsLisit(prFiles []*github.CommitFile, config *cfg.Config) map[relevantComponent]bool {
 
-	prFiles, resp, err := ghPrClientDetails.Ghclient.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
-	prom.InstrumentGhCall(resp)
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
-		return promotions, err
-	}
-
-	//first we build a **unique** list of relevant directories
-	//
-	type relevantComponent struct {
-		SourcePath    string
-		ComponentName string
-	}
 	relevantComponents := map[relevantComponent]bool{}
 
 	for _, changedFile := range prFiles {
@@ -154,6 +146,22 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 			}
 		}
 	}
+	return relevantComponents
+
+}
+
+func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
+	promotions := make(map[string]PromotionInstance)
+
+	prFiles, resp, err := ghPrClientDetails.Ghclient.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
+	prom.InstrumentGhCall(resp)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
+		return promotions, err
+	}
+
+	//
+	relevantComponents := GenerateRelevantComponentsLisit(prFiles, config)
 
 	// then we iterate over the list of relevant directories and generate a plan based on the configuration
 	for componentToPromote := range relevantComponents {
