@@ -12,7 +12,7 @@ jobs:
   markdown:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: ⬇️ lint markdown files # Lints all markdown (.md) files
         uses: avto-dev/markdown-lint@v1
         with:
@@ -21,7 +21,7 @@ jobs:
   renovate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: 🧼 lint renovate config # Validates changes to renovate.json config file
         uses: suzuki-shunsuke/github-action-renovate-config-validator@v0.1.3
         with:
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: 1.19
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
