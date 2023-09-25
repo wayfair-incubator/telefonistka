@@ -6,7 +6,7 @@ require (
 	github.com/alexliesenfeld/health v0.7.0
 	github.com/bradleyfalzon/ghinstallation/v2 v2.7.0
 	github.com/go-test/deep v1.1.0
-	github.com/google/go-github/v52 v52.0.0
+	github.com/google/go-github/v55 v55.0.0
 	github.com/google/go-github/v53 v53.2.0
 	github.com/google/go-github/v54 v54.0.0
 	github.com/google/go-github/v55 v55.0.0
