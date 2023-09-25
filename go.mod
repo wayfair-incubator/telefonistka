@@ -7,7 +7,6 @@ require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.7.0
 	github.com/go-test/deep v1.1.0
 	github.com/google/go-github/v52 v52.0.0
-	github.com/google/go-github/v53 v53.2.0
 	github.com/google/go-github/v54 v54.0.0
 	github.com/google/go-github/v55 v55.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.6
@@ -31,6 +30,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-github/v50 v50.1.0 // indirect
+	github.com/google/go-github/v53 v53.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
