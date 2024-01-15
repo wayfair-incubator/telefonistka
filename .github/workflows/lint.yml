@@ -23,14 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 🧼 lint renovate config # Validates changes to renovate.json config file
-        uses: suzuki-shunsuke/github-action-renovate-config-validator@v0.1.3
+        uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.0.1
         with:
           config_file_path: 'renovate.json'
   golangci:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: 1.19
       - uses: actions/checkout@v4

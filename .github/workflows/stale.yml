@@ -12,7 +12,7 @@ jobs:
       pull-requests: write
     steps:
     - name: 📆 mark stale PRs # Automatically marks inactive PRs as stale
-      uses: actions/stale@v8
+      uses: actions/stale@v9
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         days-before-stale: 60
