@@ -10,6 +10,7 @@ require (
 	github.com/google/go-github/v53 v53.2.0
 	github.com/google/go-github/v54 v54.0.0
 	github.com/google/go-github/v55 v55.0.0
+	github.com/google/go-github/v58 v58.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/migueleliasweb/go-github-mock v0.0.22
