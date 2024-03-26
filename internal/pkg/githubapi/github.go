@@ -249,6 +249,7 @@ func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]
 	_, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "dryRunMsg", "dry-run-pr-comment.gotmpl", promotions)
 	_ = commentPR(ghPrClientDetails, templateOutput)
 }
+
 func executeTemplate(logger *log.Entry, templateName string, templateFile string, data interface{}) (error, string) {
 	var templateOutput bytes.Buffer
 	messageTemplate, err := template.New(templateName).ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + templateFile)
@@ -263,6 +264,7 @@ func executeTemplate(logger *log.Entry, templateName string, templateFile string
 	}
 	return nil, templateOutput.String()
 }
+
 func commentPR(ghPrClientDetails GhPrClientDetails, commentBody string) error {
 	err := ghPrClientDetails.CommentOnPr(commentBody)
 	if err != nil {
@@ -305,7 +307,6 @@ func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, file
 			ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
 			return err
 		}
-
 	}
 
 	return nil
@@ -404,7 +405,6 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 					ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
 					return err
 				}
-
 			}
 		}
 	} else {
@@ -823,7 +823,7 @@ func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, ne
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Warnf("Could not set %s as assignee on PR,  err=%s", assignee, err)
-		//return pull, err
+		// return pull, err
 	} else {
 		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", assignee)
 	}

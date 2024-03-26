@@ -2,10 +2,10 @@ package telefonistka
 
 import (
 	"context"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"os"
 	"strings"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
