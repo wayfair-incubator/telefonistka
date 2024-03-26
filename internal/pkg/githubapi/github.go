@@ -246,23 +246,33 @@ func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 }
 
 func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]PromotionInstance) {
+	_, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "dryRunMsg", "dry-run-pr-comment.gotmpl", promotions)
+	_ = commentPR(ghPrClientDetails, templateOutput)
+}
+func executeTemplate(logger *log.Entry, templateName string, templateFile string, data interface{}) (error, string) {
 	var templateOutput bytes.Buffer
-	dryRunMsgTemplate, err := template.New("dryRunMsg").ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + "dry-run-pr-comment.gotmpl")
+	messageTemplate, err := template.New(templateName).ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + templateFile)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
+		logger.Errorf("Failed to parse template: err=%v", err)
+		return err, ""
 	}
-	err = dryRunMsgTemplate.ExecuteTemplate(&templateOutput, "dryRunMsg", promotions)
+	err = messageTemplate.ExecuteTemplate(&templateOutput, templateName, data)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to execute template: err=%v", err)
+		logger.Errorf("Failed to execute template: err=%v", err)
+		return err, ""
 	}
-	// templateOutputString := templateOutput.String()
-	err = ghPrClientDetails.CommentOnPr(templateOutput.String())
+	return nil, templateOutput.String()
+}
+func commentPR(ghPrClientDetails GhPrClientDetails, commentBody string) error {
+	err := ghPrClientDetails.CommentOnPr(commentBody)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to comment plan in PR: err=%v", err)
+		ghPrClientDetails.PrLogger.Errorf("Failed to comment in PR: err=%v", err)
+		return err
 	}
+	return nil
 }
 
-func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, newFileContent string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) error {
+func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, newFileContent string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string, autoMerge bool) error {
 	var treeEntries []*github.TreeEntry
 
 	generateBumpTreeEntiesForCommit(&treeEntries, ghPrClientDetails, defaultBranch, filePath, newFileContent)
@@ -287,6 +297,16 @@ func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, file
 	}
 
 	ghPrClientDetails.PrLogger.Infof("New PR URL: %s", *pr.HTMLURL)
+
+	if autoMerge {
+		ghPrClientDetails.PrLogger.Infof("Auto-merging PR %d", *pr.Number)
+		err := MergePr(ghPrClientDetails, pr.Number)
+		if err != nil {
+			ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
+			return err
+		}
+
+	}
 
 	return nil
 }
@@ -365,11 +385,41 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 					return err
 				}
 			}
+			if promotion.Metadata.AutoMerge {
+				ghPrClientDetails.PrLogger.Infof("Auto-merging PR %d", *pull.Number)
+				templateData := map[string]interface{}{
+					"prNumber": *pull.Number,
+				}
+				err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "autoMerge", "auto-merge-comment.gotmpl", templateData)
+				if err != nil {
+					return err
+				}
+				err = commentPR(ghPrClientDetails, templateOutput)
+				if err != nil {
+					return err
+				}
+
+				err = MergePr(ghPrClientDetails, pull.Number)
+				if err != nil {
+					ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
+					return err
+				}
+
+			}
 		}
 	} else {
 		commentPlanInPR(ghPrClientDetails, promotions)
 	}
 	return nil
+}
+
+func MergePr(details GhPrClientDetails, number *int) error {
+	_, resp, err := details.Ghclient.PullRequests.Merge(details.Ctx, details.Owner, details.Repo, *number, "Auto-merge", nil)
+	prom.InstrumentGhCall(resp)
+	if err != nil {
+		details.PrLogger.Errorf("Failed to merge PR: err=%v", err)
+	}
+	return err
 }
 
 func (pm *prMetadata) DeSerialize(s string) error {
@@ -690,6 +740,7 @@ func createBranch(ghPrClientDetails GhPrClientDetails, commit *github.Commit, ne
 		ghPrClientDetails.PrLogger.Errorf("Could not create Git Ref: err=%s\n%v\n", err, resp)
 		return "", err
 	}
+	ghPrClientDetails.PrLogger.Infof("New branch ref: %s", newBranchRef)
 	return newBranchRef, err
 }
 

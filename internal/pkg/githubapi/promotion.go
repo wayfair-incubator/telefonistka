@@ -1,22 +1,19 @@
 package githubapi
 
 import (
-	"bytes"
 	"fmt"
-	"regexp"
-	"sort"
-	"strings"
-	"text/template"
-
 	"github.com/google/go-github/v52/github"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 	yaml "gopkg.in/yaml.v2"
+	"regexp"
+	"sort"
+	"strings"
 )
 
 type PromotionInstance struct {
-	Metadata          PromotionInstanceMetaData `deep:"-"` // Unit tests ignire Metadata currently
+	Metadata          PromotionInstanceMetaData `deep:"-"` // Unit tests ignore Metadata currently
 	ComputedSyncPaths map[string]string         // key is target, value is source
 }
 
@@ -25,6 +22,7 @@ type PromotionInstanceMetaData struct {
 	TargetPaths                    []string
 	PerComponentSkippedTargetPaths map[string][]string // ComponentName is the key,
 	ComponentNames                 []string
+	AutoMerge                      bool
 }
 
 func containMatchingRegex(patterns []string, str string) bool {
@@ -73,19 +71,12 @@ func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 		}
 	}
 	if len(diffOutputMap) != 0 {
-		var templateOutput bytes.Buffer
-		driftMsgTemplate, err := template.New("driftMsg").ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + "drift-pr-comment.gotmpl")
+		err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "driftMsg", "drift-pr-comment.gotmpl", diffOutputMap)
 		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
-			return err
-		}
-		err = driftMsgTemplate.ExecuteTemplate(&templateOutput, "driftMsg", diffOutputMap)
-		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("Failed to execute template: err=%v", err)
 			return err
 		}
 
-		err = ghPrClientDetails.CommentOnPr(templateOutput.String())
+		err = commentPR(ghPrClientDetails, templateOutput)
 		if err != nil {
 			return err
 		}
@@ -132,6 +123,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 	type relevantComponent struct {
 		SourcePath    string
 		ComponentName string
+		AutoMerge     bool
 	}
 	relevantComponents := map[relevantComponent]bool{}
 
@@ -148,6 +140,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 				relevantComponentsElement := relevantComponent{
 					SourcePath:    compiledSourcePath,
 					ComponentName: componentName,
+					AutoMerge:     promotionPathConfig.Conditions.AutoMerge,
 				}
 				relevantComponents[relevantComponentsElement] = true
 				break // a file can only be a single "source dir"
@@ -190,6 +183,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 								SourcePath:                     componentToPromote.SourcePath,
 								ComponentNames:                 []string{componentToPromote.ComponentName},
 								PerComponentSkippedTargetPaths: map[string][]string{},
+								AutoMerge:                      componentToPromote.AutoMerge,
 							},
 							ComputedSyncPaths: map[string]string{},
 						}
