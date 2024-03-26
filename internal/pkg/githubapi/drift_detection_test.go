@@ -59,15 +59,15 @@ func TestGenerateFlatMapfromFileTree(t *testing.T) {
 			},
 		),
 	)
-	ghclient := github.NewClient(mockedHTTPClient)
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
 
 	ghPrClientDetails := GhPrClientDetails{
-		Ctx:      ctx,
-		Ghclient: ghclient,
-		Owner:    "AnOwner",
-		Repo:     "Arepo",
-		PrNumber: 120,
-		Ref:      "Abranch",
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
 		PrLogger: log.WithFields(log.Fields{
 			"repo":     "AnOwner/Arepo",
 			"prNumber": 120,
@@ -106,15 +106,15 @@ func TestGenerateDiffOutputDiffFileContent(t *testing.T) {
 		),
 	)
 
-	ghclient := github.NewClient(mockedHTTPClient)
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
 
 	ghPrClientDetails := GhPrClientDetails{
-		Ctx:      ctx,
-		Ghclient: ghclient,
-		Owner:    "AnOwner",
-		Repo:     "Arepo",
-		PrNumber: 120,
-		Ref:      "Abranch",
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
 		PrLogger: log.WithFields(log.Fields{
 			"repo":     "AnOwner/Arepo",
 			"prNumber": 120,
@@ -160,15 +160,15 @@ func TestGenerateDiffOutputIdenticalFiles(t *testing.T) {
 
 	mockedHTTPClient := mock.NewMockedHTTPClient()
 
-	ghclient := github.NewClient(mockedHTTPClient)
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
 
 	ghPrClientDetails := GhPrClientDetails{
-		Ctx:      ctx,
-		Ghclient: ghclient,
-		Owner:    "AnOwner",
-		Repo:     "Arepo",
-		PrNumber: 120,
-		Ref:      "Abranch",
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
 		PrLogger: log.WithFields(log.Fields{
 			"repo":     "AnOwner/Arepo",
 			"prNumber": 120,
@@ -207,15 +207,15 @@ func TestGenerateDiffOutputMissingSourceFile(t *testing.T) {
 		),
 	)
 
-	ghclient := github.NewClient(mockedHTTPClient)
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
 
 	ghPrClientDetails := GhPrClientDetails{
-		Ctx:      ctx,
-		Ghclient: ghclient,
-		Owner:    "AnOwner",
-		Repo:     "Arepo",
-		PrNumber: 120,
-		Ref:      "Abranch",
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
 		PrLogger: log.WithFields(log.Fields{
 			"repo":     "AnOwner/Arepo",
 			"prNumber": 120,
@@ -259,15 +259,15 @@ func TestGenerateDiffOutputMissingTargetFile(t *testing.T) {
 		),
 	)
 
-	ghclient := github.NewClient(mockedHTTPClient)
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
 
 	ghPrClientDetails := GhPrClientDetails{
-		Ctx:      ctx,
-		Ghclient: ghclient,
-		Owner:    "AnOwner",
-		Repo:     "Arepo",
-		PrNumber: 120,
-		Ref:      "Abranch",
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
 		PrLogger: log.WithFields(log.Fields{
 			"repo":     "AnOwner/Arepo",
 			"prNumber": 120,

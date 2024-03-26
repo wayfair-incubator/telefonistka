@@ -3,7 +3,7 @@
 If your IaC repo deploys software you maintain internally you probably want to automate artifact version bumping.
 Telefonistka can automate opening the IaC repo PR for the version change from the  Code repo pipeline.
 
-Currently two modes of operation are supported:
+Currently, two modes of operation are supported:
 
 ## Whole file overwrite
 
@@ -15,6 +15,7 @@ Usage:
   telefonistka bump-overwrite [flags]
 
 Flags:
+      --auto-merge                            Automatically merges the created PR, defaults to false.
   -c, --file string                           File that holds the content the target file will be overwritten with, like "version.yaml" or '<(echo -e "image:\n  tag: ${VERSION}")'.
   -g, --github-host string                    GitHub instance HOSTNAME, defaults to "github.com". This is used for GitHub Enterprise Server instances.
   -h, --help                                  help for bump-overwrite.
@@ -40,6 +41,7 @@ Usage:
   telefonistka bump-regex [flags]
 
 Flags:
+      --auto-merge                            Automatically merges the created PR, defaults to false.
   -g, --github-host string                    GitHub instance HOSTNAME, defaults to "github.com". This is used for GitHub Enterprise Server instances.
   -h, --help                                  help for bump-regex.
   -r, --regex-string string                   Regex used to replace artifact version, e.g. 'tag:\s*(\S*)',
@@ -49,7 +51,7 @@ Flags:
   -a, --triggering-actor string               GitHub user of the person/bot who triggered the bump, defaults to GITHUB_ACTOR env var.
   -p, --triggering-repo octocat/Hello-World   Github repo triggering the version bump(e.g. octocat/Hello-World) defaults to GITHUB_REPOSITORY env var.
   -s, --triggering-repo-sha string            Git SHA of triggering repo, defaults to GITHUB_SHA env var.
-  ```
+```
 
 notes:
 

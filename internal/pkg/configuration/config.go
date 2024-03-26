@@ -16,6 +16,7 @@ type ComponentConfig struct {
 
 type Condition struct {
 	PrHasLabels []string `yaml:"prHasLabels"`
+	AutoMerge   bool     `yaml:"autoMerge"`
 }
 
 type PromotionPr struct {

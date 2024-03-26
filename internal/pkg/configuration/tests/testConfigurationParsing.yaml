@@ -3,16 +3,20 @@ promotionPaths:
     conditions:
       prHasLabels:
         - "some-label"
+      autoMerge: true
     promotionPrs:
       - targetPaths:
         - "env/staging/us-east4/c1/"
       - targetPaths:
         - "env/staging/europe-west4/c1/"
   - sourcePath: "env/staging/us-east4/c1/"
+    conditions:
+      autoMerge: false
     promotionPrs:
       - targetPaths:
         - "env/prod/us-central1/c2/"
   - sourcePath: "env/prod/us-central1/c2/"
+    conditions:
     promotionPrs:
       - targetPaths:
         - "env/prod/us-west1/c2/"

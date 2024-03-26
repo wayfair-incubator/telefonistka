@@ -90,7 +90,8 @@ Configuration keys:
 |`promotionPaths`| Array of maps, each map describes a promotion flow|
 |`promotionPaths[0].sourcePath`| directory that holds components(subdirectories) to be synced, can include a regex.|
 |`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows. Flows are evaluated in order, first one to match is triggered.|
-|`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these labels the condition is considered fulfilled. Currently it's the only supported condition type|
+|`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these labels the condition is considered fulfilled.|
+|`promotionPaths[0].conditions.autoMerge`| Boolean value. If set to true, PR will be automatically merged after it is created.|
 |`promotionPaths[0].promotionPrs`|  Array of structures, each element represent a PR that will be opened when files are changed under `sourcePath`. Multiple elements means multiple PR will be opened|
 |`promotionPaths[0].promotionPrs[0].targetPaths`| Array of strings, each element represent a directory to by synced from the changed component under  `sourcePath`. Multiple elements means multiple directories will be synced in a PR|
 |`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
@@ -102,6 +103,8 @@ Example:
 ```yaml
 promotionPaths:
   - sourcePath: "workspace/"
+    conditions:
+      autoMerge: true
     promotionPrs:
       - targetPaths:
         - "clusters/dev/us-east4/c2"

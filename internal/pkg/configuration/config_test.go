@@ -29,6 +29,7 @@ func TestConfigurationParse(t *testing.T) {
 					PrHasLabels: []string{
 						"some-label",
 					},
+					AutoMerge: true,
 				},
 				PromotionPrs: []PromotionPr{
 					{
@@ -45,6 +46,9 @@ func TestConfigurationParse(t *testing.T) {
 			},
 			{
 				SourcePath: "env/staging/us-east4/c1/",
+				Conditions: Condition{
+					AutoMerge: false,
+				},
 				PromotionPrs: []PromotionPr{
 					{
 						TargetPaths: []string{
@@ -55,6 +59,9 @@ func TestConfigurationParse(t *testing.T) {
 			},
 			{
 				SourcePath: "env/prod/us-central1/c2/",
+				Conditions: Condition{
+					AutoMerge: false,
+				},
 				PromotionPrs: []PromotionPr{
 					{
 						TargetPaths: []string{

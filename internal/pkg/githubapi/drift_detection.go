@@ -52,7 +52,7 @@ func generateDiffOutput(ghPrClientDetails GhPrClientDetails, defaultBranch strin
 
 	if len(filesWithDiff) != 0 {
 		diffOutput.WriteString("\n### Blame Links:\n")
-		githubURL := ghPrClientDetails.Ghclient.BaseURL.String()
+		githubURL := ghPrClientDetails.GhClientPair.v3Client.BaseURL.String()
 		blameUrlPrefix := githubURL + ghPrClientDetails.Owner + "/" + ghPrClientDetails.Repo + "/blame"
 
 		for _, f := range filesWithDiff {
@@ -100,7 +100,7 @@ func generateFlatMapfromFileTree(ghPrClientDetails *GhPrClientDetails, workingPa
 	getContentOpts := &github.RepositoryContentGetOptions{
 		Ref: *branch,
 	}
-	_, directoryContent, resp, _ := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *workingPath, getContentOpts)
+	_, directoryContent, resp, _ := ghPrClientDetails.GhClientPair.v3Client.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *workingPath, getContentOpts)
 	prom.InstrumentGhCall(resp)
 	for _, elementInDir := range directoryContent {
 		if *elementInDir.Type == "file" {
