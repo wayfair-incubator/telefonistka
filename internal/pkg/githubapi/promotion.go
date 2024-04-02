@@ -139,7 +139,14 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 		for _, promotionPathConfig := range config.PromotionPaths {
 			if match, _ := regexp.MatchString("^"+promotionPathConfig.SourcePath+".*", *changedFile.Filename); match {
 				// "components" here are the sub directories of the SourcePath
-				getComponentRegexString := regexp.MustCompile("^" + promotionPathConfig.SourcePath + "([^/]*)/.*")
+				// but with promotionPathConfig.ComponentPathExtraDepth we can grab multiple levels of subdirectories,
+				// to support cases where components are nested deeper(e.g. [SourcePath]/owningTeam/namespace/component1)
+				componentPathRegexSubSstrings := []string{}
+				for i := 0; i <= promotionPathConfig.ComponentPathExtraDepth; i++ {
+					componentPathRegexSubSstrings = append(componentPathRegexSubSstrings, "[^/]*")
+				}
+				componentPathRegexSubString := strings.Join(componentPathRegexSubSstrings, "/")
+				getComponentRegexString := regexp.MustCompile("^" + promotionPathConfig.SourcePath + "(" + componentPathRegexSubString + ")/.*")
 				componentName := getComponentRegexString.ReplaceAllString(*changedFile.Filename, "${1}")
 
 				getSourcePathRegexString := regexp.MustCompile("^(" + promotionPathConfig.SourcePath + ")" + componentName + "/.*")
