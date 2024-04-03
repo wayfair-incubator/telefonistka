@@ -15,12 +15,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  # Use docker.io for Docker Hub if empty
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
-
 
 jobs:
   build:
@@ -53,16 +47,16 @@ jobs:
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
-      - name: Log into GH registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
+      - name: Log into GH registry (ghcr.io)
+        if: github.event_name != 'pull_request'  
         uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log into Docker Hub registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
+      - name: Log into Docker Hub registry 
+        if: github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -78,7 +72,6 @@ jobs:
         with: 
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            wayfaiross/telefonistka
 
 
       # Build and push Docker image with Buildx (don't push on PR)

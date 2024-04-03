@@ -9,11 +9,6 @@ on:
   issue_comment:
     types: [created]
 
-env:
-  # Use docker.io for Docker Hub if empty
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
 
 
 jobs:
@@ -51,14 +46,15 @@ jobs:
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
-      - name: Log into GH registry ${{ env.REGISTRY }}
+      - name: Log into GH registry (ghcr.io)
         uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log into Docker Hub registry ${{ env.REGISTRY }}
+      - name: Log into Docker Hub registry 
+        if: secrets.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -75,7 +71,6 @@ jobs:
           context: git
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            wayfaiross/telefonistka
           tags: |
             type=ref,event=branch
             type=ref,event=pr
