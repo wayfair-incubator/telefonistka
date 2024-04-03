@@ -58,6 +58,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log into Docker Hub registry ${{ env.REGISTRY }}
+        uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
@@ -70,6 +75,7 @@ jobs:
           context: git
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            odedbenozer/telefonistka
           tags: |
             type=ref,event=branch
             type=ref,event=pr
