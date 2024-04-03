@@ -75,7 +75,7 @@ jobs:
           context: git
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            wayfaiross/telefonistka
+            odedbenozer/telefonistka
           tags: |
             type=ref,event=branch
             type=ref,event=pr
