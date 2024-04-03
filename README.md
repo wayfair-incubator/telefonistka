@@ -91,6 +91,10 @@ Allows separating promotions into a separate PRs per environment/failure domain 
 
 e.g. "Sync all dev clusters in one PR but open a dedicated PR for every production cluster"
 
+Also allows automatic merging of PRs based on the promotion policy.
+
+e.g. "Automatically merge PRs that promote to multiple `lab` environments"
+
 ### Optional per-component allow/block override list
 
 Allows overriding the general(per-repo) promotion policy on a per component level.

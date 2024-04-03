@@ -95,7 +95,7 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64
 	return client
 }
 
-func CreateGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
+func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ctx context.Context) *github.Client {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
@@ -182,15 +182,15 @@ func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientP
 		log.Debugf("Using public Github API endpoint")
 	}
 
-	// ghClientPair.v3Client := CreateGithubRestClient(ghOauthToken, githubRestAltURL, ctx)
+	// ghClientPair.v3Client := createGithubRestClient(ghOauthToken, githubRestAltURL, ctx)
 	// ghClientPair.v4Client := createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL)
 	return GhClientPair{
-		v3Client: CreateGithubRestClient(ghOauthToken, githubRestAltURL, ctx),
+		v3Client: createGithubRestClient(ghOauthToken, githubRestAltURL, ctx),
 		v4Client: createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL),
 	}
 }
 
-func (gcp *GhClientPair) getAndCache(ghClientCache *lru.Cache[string, GhClientPair], ghAppIdEnvVarName string, ghAppPKeyPathEnvVarName string, ghOauthTokenEnvVarName string, repoOwner string, ctx context.Context) {
+func (gcp *GhClientPair) GetAndCache(ghClientCache *lru.Cache[string, GhClientPair], ghAppIdEnvVarName string, ghAppPKeyPathEnvVarName string, ghOauthTokenEnvVarName string, repoOwner string, ctx context.Context) {
 	githubAppId := getEnv(ghAppIdEnvVarName, "")
 	var keyExist bool
 	if githubAppId != "" {
