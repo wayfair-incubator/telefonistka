@@ -17,8 +17,8 @@ on:
 
 env:
   DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}
-  REGISTRY: ${{ vars.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  REGISTRY: ${{ vars.REGISTRY }}
 
 jobs:
   build:
