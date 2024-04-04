@@ -56,7 +56,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log into Docker Hub registry 
-        if: ${{ github.event_name != 'pull_request' && secrets.DOCKERHUB_TOKEN != '' }}
+        if: github.event_name != 'pull_request' && ${{ secrets.DOCKERHUB_TOKEN }} != ''
         uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
