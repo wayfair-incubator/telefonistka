@@ -171,9 +171,6 @@ To publish container images from a forked repo set the `IMAGE_NAME` and `REGISTR
 like so:
 <img width="785" alt="image" src="https://github.com/commercetools/telefonistka/assets/1616153/2f7201d6-fdb2-4cbf-8705-d6da7f4f6e80">
 
-
-
-
 ## Roadmap
 
 See the [open issues](https://github.com/wayfair-incubator/telefonistka/issues) for a list of proposed features (and known issues).
