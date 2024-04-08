@@ -169,7 +169,9 @@ See [here](docs/observability.md)
 To publish container images from a forked repo set the `IMAGE_NAME` and `REGISTRY` GitHub Action Repository variables to use GitHub packages.
 `REGISTRY` should be `ghcr.io` and `IMAGE_NAME` should match the repository slug, like so:
 like so:
+<!-- markdownlint-disable MD033 -->
 <img width="785" alt="image" src="https://github.com/commercetools/telefonistka/assets/1616153/2f7201d6-fdb2-4cbf-8705-d6da7f4f6e80">
+<!-- markdownlint-enable MD033 -->
 
 ## Roadmap
 
