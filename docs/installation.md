@@ -85,10 +85,12 @@ Pulled from `telefonistka.yaml` file in the repo root directory(default branch)
 
 Configuration keys:
 
+<!-- markdownlint-disable MD033 -->
 |key|desc|
 |---|---|
 |`promotionPaths`| Array of maps, each map describes a promotion flow|
 |`promotionPaths[0].sourcePath`| directory that holds components(subdirectories) to be synced, can include a regex.|
+|`promotionPaths[0].componentPathExtraDepth`| The number of extra nesting levels to add to the "components" being promoted, this allows nesting components in subdirectories while keeping them distinct.<br>A `2` value will mean the component name includes the 3 subdirectories under the `sourcePath`|
 |`promotionPaths[0].conditions` | conditions for triggering a specific promotion flows. Flows are evaluated in order, first one to match is triggered.|
 |`promotionPaths[0].conditions.prHasLabels` | Array of PR labels, if the triggering PR has any of these labels the condition is considered fulfilled.|
 |`promotionPaths[0].conditions.autoMerge`| Boolean value. If set to true, PR will be automatically merged after it is created.|
@@ -97,6 +99,7 @@ Configuration keys:
 |`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
 |`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
+<!-- markdownlint-enable MD033 -->
 
 Example:
 
