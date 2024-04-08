@@ -94,7 +94,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract Docker metadata
+      - name: Extract Docker metadata - alpine
         id: meta-alpine
         uses: docker/metadata-action@dbef88086f6cef02e264edb7dbf63250c17cef6c
         with:
@@ -107,7 +107,7 @@ jobs:
             type=sha
           flavor: prefix=alpine,onlatest=true
       - name: Build and push Docker image - alpine
-        id: build-and-push
+        id: build-and-push-alpine
         uses: docker/build-push-action@9f6f8c940b91232557f8699b21341a08624a8dce
         with:
           context: .
