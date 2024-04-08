@@ -24,7 +24,7 @@ type PromotionPr struct {
 
 type PromotionPath struct {
 	Conditions              Condition     `yaml:"conditions"`
-	ComponentPathExtraDepth int           `yaml:"componentPathDepth"`
+	ComponentPathExtraDepth int           `yaml:"componentPathExtraDepth"`
 	SourcePath              string        `yaml:"sourcePath"`
 	PromotionPrs            []PromotionPr `yaml:"promotionPrs"`
 }
