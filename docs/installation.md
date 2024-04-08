@@ -65,7 +65,7 @@ Telefonistka comes in 2 flavors:
 
 * A normal container image, that is built from `scratch` and contains only a telefonistka binary and CA certificates.
   This image is preferred and meant to be used in a production environment.
-* A container image that is built on `alpine` and contains the full alpine base OS.
+* A container image that is built on `alpine` and contains the full alpine base OS. Denoted by the `alpine-` prefix.
   This image is meant for development and debugging purposes.
   And in rare cases when it is used in CI and requires shell variable expansion.
 
