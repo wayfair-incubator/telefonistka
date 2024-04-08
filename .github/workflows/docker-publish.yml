@@ -16,11 +16,9 @@ on:
     branches: [ "main" ]
 
 env:
-  # Use docker.io for Docker Hub if empty
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
-
+  DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  REGISTRY: ${{ vars.REGISTRY }}
 
 jobs:
   build:
@@ -53,14 +51,20 @@ jobs:
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
-      - name: Log into GH registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
+      - name: Log into GH registry (ghcr.io)
+        if: github.event_name != 'pull_request'  
         uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log into Docker Hub registry 
+        if: github.event_name != 'pull_request' && env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
@@ -72,6 +76,7 @@ jobs:
         with: 
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action

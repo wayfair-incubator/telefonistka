@@ -91,6 +91,10 @@ Allows separating promotions into a separate PRs per environment/failure domain 
 
 e.g. "Sync all dev clusters in one PR but open a dedicated PR for every production cluster"
 
+Also allows automatic merging of PRs based on the promotion policy.
+
+e.g. "Automatically merge PRs that promote to multiple `lab` environments"
+
 ### Optional per-component allow/block override list
 
 Allows overriding the general(per-repo) promotion policy on a per component level.
@@ -161,6 +165,11 @@ See [here](docs/observability.md)
 * See the URLs in ngrok command output.
 * Add a webhook to repo setting (don't forget the `/webhook` path in the URL).
 * Content type needs to be `application/json`, **currently** only PR events are needed
+
+To publish container images from a forked repo set the `IMAGE_NAME` and `REGISTRY` GitHub Action Repository variables to use GitHub packages.
+`REGISTRY` should be `ghcr.io` and `IMAGE_NAME` should match the repository slug, like so:
+like so:
+<img width="785" alt="image" src="https://github.com/commercetools/telefonistka/assets/1616153/2f7201d6-fdb2-4cbf-8705-d6da7f4f6e80">
 
 ## Roadmap
 

@@ -26,7 +26,7 @@ type promotionInstanceMetaData struct {
 }
 
 type GhPrClientDetails struct {
-	Ghclient *github.Client
+	GhClientPair *GhClientPair
 	// This whole struct describe the metadata of the PR, so it makes sense to share the context with everything to generate HTTP calls related to that PR, right?
 	Ctx           context.Context //nolint:containedctx
 	DefaultBranch string
@@ -148,18 +148,18 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 		// this is a commit push, do something with it?
 		log.Infoln("is PushEvent")
 		repoOwner := *eventPayload.Repo.Owner.Login
-		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
 		prLogger := log.WithFields(log.Fields{
 			"event_type": "push",
 		})
 
 		ghPrClientDetails := GhPrClientDetails{
-			Ctx:      ctx,
-			Ghclient: mainGithubClientPair.v3Client,
-			Owner:    repoOwner,
-			Repo:     *eventPayload.Repo.Name,
-			PrLogger: prLogger,
+			Ctx:          ctx,
+			GhClientPair: &mainGithubClientPair,
+			Owner:        repoOwner,
+			Repo:         *eventPayload.Repo.Name,
+			PrLogger:     prLogger,
 		}
 
 		handlePushEvent(ctx, eventPayload, r, payload, ghPrClientDetails)
@@ -173,27 +173,27 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 
 		repoOwner := *eventPayload.Repo.Owner.Login
 
-		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
-		approverGithubClientPair.getAndCache(prApproverGhClientCache, "APPROVER_GITHUB_APP_ID", "APPROVER_GITHUB_APP_PRIVATE_KEY_PATH", "APPROVER_GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+		approverGithubClientPair.GetAndCache(prApproverGhClientCache, "APPROVER_GITHUB_APP_ID", "APPROVER_GITHUB_APP_PRIVATE_KEY_PATH", "APPROVER_GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
 		ghPrClientDetails := GhPrClientDetails{
-			Ctx:      ctx,
-			Ghclient: mainGithubClientPair.v3Client,
-			Labels:   eventPayload.PullRequest.Labels,
-			Owner:    repoOwner,
-			Repo:     *eventPayload.Repo.Name,
-			PrNumber: *eventPayload.PullRequest.Number,
-			Ref:      *eventPayload.PullRequest.Head.Ref,
-			PrAuthor: *eventPayload.PullRequest.User.Login,
-			PrLogger: prLogger,
-			PrSHA:    *eventPayload.PullRequest.Head.SHA,
+			Ctx:          ctx,
+			GhClientPair: &mainGithubClientPair,
+			Labels:       eventPayload.PullRequest.Labels,
+			Owner:        repoOwner,
+			Repo:         *eventPayload.Repo.Name,
+			PrNumber:     *eventPayload.PullRequest.Number,
+			Ref:          *eventPayload.PullRequest.Head.Ref,
+			PrAuthor:     *eventPayload.PullRequest.User.Login,
+			PrLogger:     prLogger,
+			PrSHA:        *eventPayload.PullRequest.Head.SHA,
 		}
 
 		HandlePREvent(eventPayload, ghPrClientDetails, mainGithubClientPair, approverGithubClientPair, ctx)
 
 	case *github.IssueCommentEvent:
 		repoOwner := *eventPayload.Repo.Owner.Login
-		mainGithubClientPair.getAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
+		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
 		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
 		log.Infof("Actionable event type %s\n", eventType)
@@ -203,13 +203,13 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 		})
 		if *eventPayload.Comment.User.Login != botIdentity {
 			ghPrClientDetails := GhPrClientDetails{
-				Ctx:      ctx,
-				Ghclient: mainGithubClientPair.v3Client,
-				Owner:    repoOwner,
-				Repo:     *eventPayload.Repo.Name,
-				PrNumber: *eventPayload.Issue.Number,
-				PrAuthor: *eventPayload.Issue.User.Login,
-				PrLogger: prLogger,
+				Ctx:          ctx,
+				GhClientPair: &mainGithubClientPair,
+				Owner:        repoOwner,
+				Repo:         *eventPayload.Repo.Name,
+				PrNumber:     *eventPayload.Issue.Number,
+				PrAuthor:     *eventPayload.Issue.User.Login,
+				PrLogger:     prLogger,
 			}
 			_ = handleCommentPrEvent(ghPrClientDetails, eventPayload)
 		} else {
@@ -246,23 +246,35 @@ func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 }
 
 func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]PromotionInstance) {
-	var templateOutput bytes.Buffer
-	dryRunMsgTemplate, err := template.New("dryRunMsg").ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + "dry-run-pr-comment.gotmpl")
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
-	}
-	err = dryRunMsgTemplate.ExecuteTemplate(&templateOutput, "dryRunMsg", promotions)
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to execute template: err=%v", err)
-	}
-	// templateOutputString := templateOutput.String()
-	err = ghPrClientDetails.CommentOnPr(templateOutput.String())
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to comment plan in PR: err=%v", err)
-	}
+	_, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "dryRunMsg", "dry-run-pr-comment.gotmpl", promotions)
+	_ = commentPR(ghPrClientDetails, templateOutput)
 }
 
-func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, newFileContent string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string) error {
+func executeTemplate(logger *log.Entry, templateName string, templateFile string, data interface{}) (error, string) {
+	var templateOutput bytes.Buffer
+	messageTemplate, err := template.New(templateName).ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + templateFile)
+	if err != nil {
+		logger.Errorf("Failed to parse template: err=%v", err)
+		return err, ""
+	}
+	err = messageTemplate.ExecuteTemplate(&templateOutput, templateName, data)
+	if err != nil {
+		logger.Errorf("Failed to execute template: err=%v", err)
+		return err, ""
+	}
+	return nil, templateOutput.String()
+}
+
+func commentPR(ghPrClientDetails GhPrClientDetails, commentBody string) error {
+	err := ghPrClientDetails.CommentOnPr(commentBody)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to comment in PR: err=%v", err)
+		return err
+	}
+	return nil
+}
+
+func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, filePath string, newFileContent string, triggeringRepo string, triggeringRepoSHA string, triggeringActor string, autoMerge bool) error {
 	var treeEntries []*github.TreeEntry
 
 	generateBumpTreeEntiesForCommit(&treeEntries, ghPrClientDetails, defaultBranch, filePath, newFileContent)
@@ -287,6 +299,15 @@ func BumpVersion(ghPrClientDetails GhPrClientDetails, defaultBranch string, file
 	}
 
 	ghPrClientDetails.PrLogger.Infof("New PR URL: %s", *pr.HTMLURL)
+
+	if autoMerge {
+		ghPrClientDetails.PrLogger.Infof("Auto-merging PR %d", *pr.Number)
+		err := MergePr(ghPrClientDetails, pr.Number)
+		if err != nil {
+			ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
+			return err
+		}
+	}
 
 	return nil
 }
@@ -365,11 +386,40 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 					return err
 				}
 			}
+			if promotion.Metadata.AutoMerge {
+				ghPrClientDetails.PrLogger.Infof("Auto-merging PR %d", *pull.Number)
+				templateData := map[string]interface{}{
+					"prNumber": *pull.Number,
+				}
+				err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "autoMerge", "auto-merge-comment.gotmpl", templateData)
+				if err != nil {
+					return err
+				}
+				err = commentPR(ghPrClientDetails, templateOutput)
+				if err != nil {
+					return err
+				}
+
+				err = MergePr(ghPrClientDetails, pull.Number)
+				if err != nil {
+					ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
+					return err
+				}
+			}
 		}
 	} else {
 		commentPlanInPR(ghPrClientDetails, promotions)
 	}
 	return nil
+}
+
+func MergePr(details GhPrClientDetails, number *int) error {
+	_, resp, err := details.GhClientPair.v3Client.PullRequests.Merge(details.Ctx, details.Owner, details.Repo, *number, "Auto-merge", nil)
+	prom.InstrumentGhCall(resp)
+	if err != nil {
+		details.PrLogger.Errorf("Failed to merge PR: err=%v", err)
+	}
+	return err
 }
 
 func (pm *prMetadata) DeSerialize(s string) error {
@@ -389,7 +439,7 @@ func (p GhPrClientDetails) CommentOnPr(commentBody string) error {
 	commentBody = "<!-- telefonistka_tag -->\n" + commentBody
 
 	comment := &github.IssueComment{Body: &commentBody}
-	_, resp, err := p.Ghclient.Issues.CreateComment(p.Ctx, p.Owner, p.Repo, p.PrNumber, comment)
+	_, resp, err := p.GhClientPair.v3Client.Issues.CreateComment(p.Ctx, p.Owner, p.Repo, p.PrNumber, comment)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		p.PrLogger.Errorf("Could not comment in PR: err=%s\n%v\n", err, resp)
@@ -412,7 +462,7 @@ func (p *GhPrClientDetails) ToggleCommitStatus(context string, user string) erro
 	var r error
 	listOpts := &github.ListOptions{}
 
-	initialStatuses, resp, err := p.Ghclient.Repositories.ListStatuses(p.Ctx, p.Owner, p.Repo, p.Ref, listOpts)
+	initialStatuses, resp, err := p.GhClientPair.v3Client.Repositories.ListStatuses(p.Ctx, p.Owner, p.Repo, p.Ref, listOpts)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		p.PrLogger.Errorf("Failed to fetch  existing statuses for commit  %s, err=%s", p.Ref, err)
@@ -424,7 +474,7 @@ func (p *GhPrClientDetails) ToggleCommitStatus(context string, user string) erro
 			if *commitStatus.State != "success" {
 				p.PrLogger.Infof("%s Toggled  %s(%s) to success", user, context, *commitStatus.State)
 				*commitStatus.State = "success"
-				_, resp, err := p.Ghclient.Repositories.CreateStatus(p.Ctx, p.Owner, p.Repo, p.PrSHA, commitStatus)
+				_, resp, err := p.GhClientPair.v3Client.Repositories.CreateStatus(p.Ctx, p.Owner, p.Repo, p.PrSHA, commitStatus)
 				prom.InstrumentGhCall(resp)
 				if err != nil {
 					p.PrLogger.Errorf("Failed to create context %s, err=%s", context, err)
@@ -433,7 +483,7 @@ func (p *GhPrClientDetails) ToggleCommitStatus(context string, user string) erro
 			} else {
 				p.PrLogger.Infof("%s Toggled %s(%s) to failure", user, context, *commitStatus.State)
 				*commitStatus.State = "failure"
-				_, resp, err := p.Ghclient.Repositories.CreateStatus(p.Ctx, p.Owner, p.Repo, p.PrSHA, commitStatus)
+				_, resp, err := p.GhClientPair.v3Client.Repositories.CreateStatus(p.Ctx, p.Owner, p.Repo, p.PrSHA, commitStatus)
 				prom.InstrumentGhCall(resp)
 				if err != nil {
 					p.PrLogger.Errorf("Failed to create context %s, err=%s", context, err)
@@ -462,7 +512,7 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 		AvatarURL:   &avatarURL,
 	}
 	ghPrClientDetails.PrLogger.Debugf("Setting commit %s status to %s", ghPrClientDetails.PrSHA, state)
-	_, resp, err := ghPrClientDetails.Ghclient.Repositories.CreateStatus(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrSHA, commitStatus)
+	_, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.CreateStatus(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrSHA, commitStatus)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to set commit status: err=%s\n%v", err, resp)
@@ -471,7 +521,7 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 
 func (p *GhPrClientDetails) GetSHA() (string, error) {
 	if p.PrSHA == "" {
-		prObject, resp, err := p.Ghclient.PullRequests.Get(p.Ctx, p.Owner, p.Repo, p.PrNumber)
+		prObject, resp, err := p.GhClientPair.v3Client.PullRequests.Get(p.Ctx, p.Owner, p.Repo, p.PrNumber)
 		prom.InstrumentGhCall(resp)
 		if err != nil {
 			p.PrLogger.Errorf("Could not get pr data: err=%s\n%v\n", err, resp)
@@ -486,7 +536,7 @@ func (p *GhPrClientDetails) GetSHA() (string, error) {
 
 func (p *GhPrClientDetails) GetRef() (string, error) {
 	if p.Ref == "" {
-		prObject, resp, err := p.Ghclient.PullRequests.Get(p.Ctx, p.Owner, p.Repo, p.PrNumber)
+		prObject, resp, err := p.GhClientPair.v3Client.PullRequests.Get(p.Ctx, p.Owner, p.Repo, p.PrNumber)
 		prom.InstrumentGhCall(resp)
 		if err != nil {
 			p.PrLogger.Errorf("Could not get pr data: err=%s\n%v\n", err, resp)
@@ -501,7 +551,7 @@ func (p *GhPrClientDetails) GetRef() (string, error) {
 
 func (p *GhPrClientDetails) GetDefaultBranch() (string, error) {
 	if p.DefaultBranch == "" {
-		repo, resp, err := p.Ghclient.Repositories.Get(p.Ctx, p.Owner, p.Repo)
+		repo, resp, err := p.GhClientPair.v3Client.Repositories.Get(p.Ctx, p.Owner, p.Repo)
 		if err != nil {
 			p.PrLogger.Errorf("Could not get repo default branch: err=%s\n%v\n", err, resp)
 			return "", err
@@ -520,7 +570,7 @@ func generateDeletionTreeEntries(ghPrClientDetails *GhPrClientDetails, path *str
 	getContentOpts := &github.RepositoryContentGetOptions{
 		Ref: *branch,
 	}
-	_, directoryContent, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *path, getContentOpts)
+	_, directoryContent, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *path, getContentOpts)
 	prom.InstrumentGhCall(resp)
 	if resp.StatusCode == 404 {
 		ghPrClientDetails.PrLogger.Infof("Skipping deletion of non-existing  %s", *path)
@@ -568,7 +618,7 @@ func getDirecotyGitObjectSha(ghPrClientDetails GhPrClientDetails, dirPath string
 
 	direcotyGitObjectSha := ""
 	// in GH API/go-github, to get directory SHA you need to scan the whole parent Dir 🤷
-	_, directoryContent, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, path.Dir(dirPath), &repoContentGetOptions)
+	_, directoryContent, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, path.Dir(dirPath), &repoContentGetOptions)
 	prom.InstrumentGhCall(resp)
 	if err != nil && resp.StatusCode != 404 {
 		ghPrClientDetails.PrLogger.Errorf("Could not fetch source directory SHA err=%s\n%v\n", err, resp)
@@ -634,21 +684,21 @@ func createCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.Tre
 	// To avoid cloning the repo locally, I'm using GitHub low level GIT Tree API to sync the source folder "over" the target folders
 	// This works by getting the source dir git object SHA, and overwriting(Git.CreateTree) the target directory git object SHA with the source's SHA.
 
-	ref, resp, err := ghPrClientDetails.Ghclient.Git.GetRef(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, "heads/"+defaultBranch)
+	ref, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.GetRef(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, "heads/"+defaultBranch)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to get main branch ref: err=%s\n", err)
 		return nil, err
 	}
 	baseTreeSHA := ref.Object.SHA
-	tree, resp, err := ghPrClientDetails.Ghclient.Git.CreateTree(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *baseTreeSHA, treeEntries)
+	tree, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateTree(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *baseTreeSHA, treeEntries)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to create Git Tree object: err=%s\n%+v", err, resp)
 		ghPrClientDetails.PrLogger.Errorf("These are the treeEntries: %+v", treeEntries)
 		return nil, err
 	}
-	parentCommit, resp, err := ghPrClientDetails.Ghclient.Git.GetCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *baseTreeSHA)
+	parentCommit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.GetCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *baseTreeSHA)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to get parent commit: err=%s\n", err)
@@ -661,7 +711,7 @@ func createCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.Tre
 		Tree:    tree,
 	}
 
-	commit, resp, err := ghPrClientDetails.Ghclient.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig)
+	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to create Git commit: err=%s\n", err) // TODO comment this error to PR
@@ -684,12 +734,13 @@ func createBranch(ghPrClientDetails GhPrClientDetails, commit *github.Commit, ne
 		Object: newRefGitObjct,
 	}
 
-	_, resp, err := ghPrClientDetails.Ghclient.Git.CreateRef(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newRefConfig)
+	_, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateRef(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newRefConfig)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Could not create Git Ref: err=%s\n%v\n", err, resp)
 		return "", err
 	}
+	ghPrClientDetails.PrLogger.Infof("New branch ref: %s", newBranchRef)
 	return newBranchRef, err
 }
 
@@ -750,7 +801,7 @@ func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, ne
 		Head:  github.String(newBranchRef),
 	}
 
-	pull, resp, err := ghPrClientDetails.Ghclient.PullRequests.Create(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newPrConfig)
+	pull, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.Create(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newPrConfig)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Could not create GitHub PR: err=%s\n%v\n", err, resp)
@@ -759,7 +810,7 @@ func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, ne
 		ghPrClientDetails.PrLogger.Infof("PR %d opened", *pull.Number)
 	}
 
-	prLables, resp, err := ghPrClientDetails.Ghclient.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{"promotion"})
+	prLables, resp, err := ghPrClientDetails.GhClientPair.v3Client.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{"promotion"})
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Could not label GitHub PR: err=%s\n%v\n", err, resp)
@@ -768,11 +819,11 @@ func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, ne
 		ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", pull.Number, prLables)
 	}
 
-	_, resp, err = ghPrClientDetails.Ghclient.Issues.AddAssignees(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{assignee})
+	_, resp, err = ghPrClientDetails.GhClientPair.v3Client.Issues.AddAssignees(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, []string{assignee})
 	prom.InstrumentGhCall(resp)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Could set %s as assignee on PR,  err=%s", assignee, err)
-		return pull, err
+		ghPrClientDetails.PrLogger.Warnf("Could not set %s as assignee on PR,  err=%s", assignee, err)
+		// return pull, err
 	} else {
 		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", assignee)
 	}
@@ -823,7 +874,7 @@ func GetInRepoConfig(ghPrClientDetails GhPrClientDetails, defaultBranch string) 
 
 func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath string) (string, error, int) {
 	rGetContentOps := github.RepositoryContentGetOptions{Ref: branch}
-	fileContent, _, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, filePath, &rGetContentOps)
+	fileContent, _, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, filePath, &rGetContentOps)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to get file:%s\n%v\n", err, resp)

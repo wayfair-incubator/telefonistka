@@ -1,12 +1,10 @@
 package githubapi
 
 import (
-	"bytes"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
-	"text/template"
 
 	"github.com/google/go-github/v52/github"
 	log "github.com/sirupsen/logrus"
@@ -16,7 +14,7 @@ import (
 )
 
 type PromotionInstance struct {
-	Metadata          PromotionInstanceMetaData `deep:"-"` // Unit tests ignire Metadata currently
+	Metadata          PromotionInstanceMetaData `deep:"-"` // Unit tests ignore Metadata currently
 	ComputedSyncPaths map[string]string         // key is target, value is source
 }
 
@@ -25,6 +23,7 @@ type PromotionInstanceMetaData struct {
 	TargetPaths                    []string
 	PerComponentSkippedTargetPaths map[string][]string // ComponentName is the key,
 	ComponentNames                 []string
+	AutoMerge                      bool
 }
 
 func containMatchingRegex(patterns []string, str string) bool {
@@ -73,19 +72,12 @@ func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 		}
 	}
 	if len(diffOutputMap) != 0 {
-		var templateOutput bytes.Buffer
-		driftMsgTemplate, err := template.New("driftMsg").ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + "drift-pr-comment.gotmpl")
+		err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "driftMsg", "drift-pr-comment.gotmpl", diffOutputMap)
 		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("Failed to parse template: err=%v", err)
-			return err
-		}
-		err = driftMsgTemplate.ExecuteTemplate(&templateOutput, "driftMsg", diffOutputMap)
-		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("Failed to execute template: err=%v", err)
 			return err
 		}
 
-		err = ghPrClientDetails.CommentOnPr(templateOutput.String())
+		err = commentPR(ghPrClientDetails, templateOutput)
 		if err != nil {
 			return err
 		}
@@ -99,7 +91,7 @@ func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath string, branch string) (*cfg.ComponentConfig, error) {
 	componentConfig := &cfg.ComponentConfig{}
 	rGetContentOps := &github.RepositoryContentGetOptions{Ref: branch}
-	componentConfigFileContent, _, resp, err := ghPrClientDetails.Ghclient.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, componentPath+"/telefonistka.yaml", rGetContentOps)
+	componentConfigFileContent, _, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, componentPath+"/telefonistka.yaml", rGetContentOps)
 	prom.InstrumentGhCall(resp)
 	if (err != nil) && (resp.StatusCode != 404) { // The file is optional
 		ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
@@ -120,7 +112,7 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
 	promotions := make(map[string]PromotionInstance)
 
-	prFiles, resp, err := ghPrClientDetails.Ghclient.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
+	prFiles, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
@@ -132,6 +124,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 	type relevantComponent struct {
 		SourcePath    string
 		ComponentName string
+		AutoMerge     bool
 	}
 	relevantComponents := map[relevantComponent]bool{}
 
@@ -154,6 +147,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 				relevantComponentsElement := relevantComponent{
 					SourcePath:    compiledSourcePath,
 					ComponentName: componentName,
+					AutoMerge:     promotionPathConfig.Conditions.AutoMerge,
 				}
 				relevantComponents[relevantComponentsElement] = true
 				break // a file can only be a single "source dir"
@@ -196,6 +190,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 								SourcePath:                     componentToPromote.SourcePath,
 								ComponentNames:                 []string{componentToPromote.ComponentName},
 								PerComponentSkippedTargetPaths: map[string][]string{},
+								AutoMerge:                      componentToPromote.AutoMerge,
 							},
 							ComputedSyncPaths: map[string]string{},
 						}

@@ -15,16 +15,16 @@ import (
 func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, expectedPromotion map[string]PromotionInstance, mockedHTTPClient *http.Client) {
 	t.Helper()
 	ctx := context.Background()
-	ghclient := github.NewClient(mockedHTTPClient)
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
 	labelName := "fast-promotion"
 
 	ghPrClientDetails := GhPrClientDetails{
-		Ctx:      ctx,
-		Ghclient: ghclient,
-		Owner:    "AnOwner",
-		Repo:     "Arepo",
-		PrNumber: 120,
-		Ref:      "Abranch",
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
 		PrLogger: log.WithFields(log.Fields{
 			"repo":     "AnOwner/Arepo",
 			"prNumber": 120,
