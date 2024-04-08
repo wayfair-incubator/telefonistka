@@ -145,9 +145,11 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 				for i := 0; i <= promotionPathConfig.ComponentPathExtraDepth; i++ {
 					componentPathRegexSubSstrings = append(componentPathRegexSubSstrings, "[^/]*")
 				}
+				ghPrClientDetails.PrLogger.Debugf("componentPathRegexSubSstrings: %s", componentPathRegexSubSstrings)
 				componentPathRegexSubString := strings.Join(componentPathRegexSubSstrings, "/")
 				getComponentRegexString := regexp.MustCompile("^" + promotionPathConfig.SourcePath + "(" + componentPathRegexSubString + ")/.*")
 				componentName := getComponentRegexString.ReplaceAllString(*changedFile.Filename, "${1}")
+				ghPrClientDetails.PrLogger.Debugf("componentName: %s", componentName)
 
 				getSourcePathRegexString := regexp.MustCompile("^(" + promotionPathConfig.SourcePath + ")" + componentName + "/.*")
 				compiledSourcePath := getSourcePathRegexString.ReplaceAllString(*changedFile.Filename, "${1}")
