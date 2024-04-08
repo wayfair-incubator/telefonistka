@@ -106,7 +106,7 @@ jobs:
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image - alpine
-        id: build-and-push
+        id: build-and-push-alpine
         uses: docker/build-push-action@9f6f8c940b91232557f8699b21341a08624a8dce
         with:
           context: .
