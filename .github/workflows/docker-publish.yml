@@ -91,6 +91,32 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+    # Extract metadata (tags, labels) for Docker
+    # https://github.com/docker/metadata-action
+    # 1st image name is for GH package repo
+    # 2nd image name is for DockerHub image
+      - name: Extract Docker metadata - alpine
+        id: meta-alpine
+        uses: docker/metadata-action@dbef88086f6cef02e264edb7dbf63250c17cef6c
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: prefix=alpine-,onlatest=true
+
+      # Build and push Docker image with Buildx (don't push on PR)
+      # https://github.com/docker/build-push-action
+      - name: Build and push Docker image - alpine
+        id: build-and-push-alpine
+        uses: docker/build-push-action@9f6f8c940b91232557f8699b21341a08624a8dce
+        with:
+          context: .
+          target: alpine-release
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-alpine.outputs.tags }}
+          labels: ${{ steps.meta-alpine.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
 
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
