@@ -122,7 +122,7 @@ telefonistka bump-overwrite \
     --file <(echo -e "image:\n  tag: v3.4.9") \
 ```
 
-It currently supports full file overwrite and regex based replacement.
+It currently supports full file overwrite, regex and yaml based replacement.
 See [here](docs/version_bumping.md) for more details
 
 ### GitHub Push events fanout/multiplexing
