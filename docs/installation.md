@@ -87,6 +87,14 @@ Environment variables for the webhook process:
 
 `TEMPLATES_PATH` Telefonistka uses Go templates to format GitHub PR comments, the variable override the default templates path("templates/"), useful for environments where the container workdir is overridden(like GitHub Actions) or when custom templates are desired.
 
+`ARGOCD_SERVER_ADDR` Hostname and port of the ArgoCD API endpoint, like `argocd-server.argocd.svc.cluster.local:443`, default is `localhost:8080"`
+
+`ARGOCD_TOKEN` ArgoCD authentication token.
+
+`ARGOCD_PLAINTEXT` Allows disabeling TLS on ArgoCD API calls. (default: `false`)
+
+`ARGOCD_INSECURE` Allow disabeling server certificate validation. (default: `false`)
+
 Behavior of the bot is configured by YAML files **in the target repo**:
 
 ## Repo Configuration

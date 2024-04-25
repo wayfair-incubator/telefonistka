@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-github/v52/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
+	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
 )
@@ -36,6 +37,7 @@ type GhPrClientDetails struct {
 	PrNumber      int
 	PrSHA         string
 	Ref           string
+	RepoURL       string
 	PrLogger      *log.Entry
 	Labels        []*github.Label
 	PrMetadata    prMetadata
@@ -78,6 +80,12 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 
 	var prHandleError error
 
+	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
+	}
+
 	if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
 		SetCommitStatus(ghPrClientDetails, "pending")
 		wasCommitStatusSet = true
@@ -90,10 +98,46 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 		SetCommitStatus(ghPrClientDetails, "pending")
 		wasCommitStatusSet = true
 		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
-		err := MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
+		err = MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
 		if err != nil {
 			prHandleError = err
-			log.Errorf("Failed to minimize stale comments: err=%s\n", err)
+			ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
+		}
+		if config.CommentArgocdDiffonPR {
+			componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
+			if err != nil {
+				prHandleError = err
+				ghPrClientDetails.PrLogger.Errorf("Failed to get list of changed components: err=%s\n", err)
+			}
+			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentPathList, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL)
+			if err != nil {
+				prHandleError = err
+				ghPrClientDetails.PrLogger.Errorf("Failed to get ArgoCD diff information: err=%s\n", err)
+			} else {
+				ghPrClientDetails.PrLogger.Debugf("Successfully got ArgoCD diff\n")
+				if !hasComponentDiffErrors && !hasComponentDiff {
+					ghPrClientDetails.PrLogger.Debugf("ArgoCD diff is empty, this PR will not change cluster state\n")
+					prLables, resp, err := ghPrClientDetails.GhClientPair.v3Client.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *eventPayload.PullRequest.Number, []string{"noop"})
+					prom.InstrumentGhCall(resp)
+					if err != nil {
+						ghPrClientDetails.PrLogger.Errorf("Could not label GitHub PR: err=%s\n%v\n", err, resp)
+					} else {
+						ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", *eventPayload.PullRequest.Number, prLables)
+					}
+					// TODO Auto-merge PRs with no changes(optional)
+				}
+			}
+
+			err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffOfChangedComponents)
+			if err != nil {
+				prHandleError = err
+				log.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+			}
+			err = commentPR(ghPrClientDetails, templateOutput)
+			if err != nil {
+				prHandleError = err
+				log.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
+			}
 		}
 		ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
 		err = DetectDrift(ghPrClientDetails)
@@ -105,14 +149,8 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 		SetCommitStatus(ghPrClientDetails, "pending")
 		wasCommitStatusSet = true
 		ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
-		defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
-		config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
-		if err != nil {
-			ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
-		} else {
-			promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, *eventPayload.PullRequest.Head.Ref)
-			commentPlanInPR(ghPrClientDetails, promotions)
-		}
+		promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, *eventPayload.PullRequest.Head.Ref)
+		commentPlanInPR(ghPrClientDetails, promotions)
 	}
 
 	if wasCommitStatusSet {
@@ -159,6 +197,7 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 			GhClientPair: &mainGithubClientPair,
 			Owner:        repoOwner,
 			Repo:         *eventPayload.Repo.Name,
+			RepoURL:      *eventPayload.Repo.HTMLURL,
 			PrLogger:     prLogger,
 		}
 
@@ -182,6 +221,7 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 			Labels:       eventPayload.PullRequest.Labels,
 			Owner:        repoOwner,
 			Repo:         *eventPayload.Repo.Name,
+			RepoURL:      *eventPayload.Repo.HTMLURL,
 			PrNumber:     *eventPayload.PullRequest.Number,
 			Ref:          *eventPayload.PullRequest.Head.Ref,
 			PrAuthor:     *eventPayload.PullRequest.User.Login,
@@ -207,6 +247,7 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 				GhClientPair: &mainGithubClientPair,
 				Owner:        repoOwner,
 				Repo:         *eventPayload.Repo.Name,
+				RepoURL:      *eventPayload.Repo.HTMLURL,
 				PrNumber:     *eventPayload.Issue.Number,
 				PrAuthor:     *eventPayload.Issue.User.Login,
 				PrLogger:     prLogger,

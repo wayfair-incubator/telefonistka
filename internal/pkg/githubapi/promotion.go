@@ -109,24 +109,15 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 	return componentConfig, nil
 }
 
-func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
-	promotions := make(map[string]PromotionInstance)
-
+// This function generates a list of "components" that where changed in the PR and are relevant for promotion)
+func generateListOfRelevantComponents(ghPrClientDetails GhPrClientDetails, config *cfg.Config) (relevantComponents map[relevantComponent]struct{}, err error) {
+	relevantComponents = make(map[relevantComponent]struct{})
 	prFiles, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
-		return promotions, err
+		return nil, err
 	}
-
-	//first we build a **unique** list of relevant directories
-	//
-	type relevantComponent struct {
-		SourcePath    string
-		ComponentName string
-		AutoMerge     bool
-	}
-	relevantComponents := map[relevantComponent]bool{}
 
 	for _, changedFile := range prFiles {
 		for _, promotionPathConfig := range config.PromotionPaths {
@@ -149,13 +140,35 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 					ComponentName: componentName,
 					AutoMerge:     promotionPathConfig.Conditions.AutoMerge,
 				}
-				relevantComponents[relevantComponentsElement] = true
+				relevantComponents[relevantComponentsElement] = struct{}{}
 				break // a file can only be a single "source dir"
 			}
 		}
 	}
+	return relevantComponents, nil
+}
 
-	// then we iterate over the list of relevant directories and generate a plan based on the configuration
+type relevantComponent struct {
+	SourcePath    string
+	ComponentName string
+	AutoMerge     bool
+}
+
+// This function basically turns the map with struct keys into a list of strings
+func generateListOfChangedComponentPaths(ghPrClientDetails GhPrClientDetails, config *cfg.Config) (changedComponentPaths []string, err error) {
+	relevantComponents, err := generateListOfRelevantComponents(ghPrClientDetails, config)
+	if err != nil {
+		return nil, err
+	}
+	for component := range relevantComponents {
+		changedComponentPaths = append(changedComponentPaths, component.SourcePath+component.ComponentName)
+	}
+	return changedComponentPaths, nil
+}
+
+// This function generates a promotion plan based on the list of relevant components that where "touched" and the in-repo telefonitka  configuration
+func generatePlanBasedOnChangeddComponent(ghPrClientDetails GhPrClientDetails, config *cfg.Config, relevantComponents map[relevantComponent]struct{}, configBranch string) (promotions map[string]PromotionInstance, err error) {
+	promotions = make(map[string]PromotionInstance)
 	for componentToPromote := range relevantComponents {
 		componentConfig, err := getComponentConfig(ghPrClientDetails, componentToPromote.SourcePath+componentToPromote.ComponentName, configBranch)
 		if err != nil {
@@ -222,6 +235,15 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 			}
 		}
 	}
-
 	return promotions, nil
+}
+
+func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Config, configBranch string) (map[string]PromotionInstance, error) {
+	// TODO refactor tests to use the two functions below instead of this one
+	relevantComponents, err := generateListOfRelevantComponents(ghPrClientDetails, config)
+	if err != nil {
+		return nil, err
+	}
+	promotions, err := generatePlanBasedOnChangeddComponent(ghPrClientDetails, config, relevantComponents, configBranch)
+	return promotions, err
 }

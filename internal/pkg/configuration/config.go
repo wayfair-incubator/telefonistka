@@ -40,6 +40,7 @@ type Config struct {
 	AutoApprovePromotionPrs bool                   `yaml:"autoApprovePromotionPrs"`
 	ToggleCommitStatus      map[string]string      `yaml:"toggleCommitStatus"`
 	WebhookEndpointRegexs   []WebhookEndpointRegex `yaml:"webhookEndpointRegexs"`
+	CommentArgocdDiffonPR   bool                   `yaml:"commentArgocdDiffonPR"`
 }
 
 func ParseConfigFromYaml(y string) (*Config, error) {

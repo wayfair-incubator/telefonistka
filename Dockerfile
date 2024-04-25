@@ -1,5 +1,5 @@
 
-FROM golang:1.21.5 as test
+FROM golang:1.22.2 as test
 ARG GOPROXY
 ENV GOPATH=/go
 ENV PATH="$PATH:$GOPATH/bin"
@@ -8,7 +8,6 @@ COPY . ./
 RUN make test
 
 FROM test as build
-# FROM golang:1.21.5 as build
 ARG GOPROXY
 ENV GOPATH=/go
 ENV PATH="$PATH:$GOPATH/bin"
