@@ -19,6 +19,7 @@ import (
 	argoio "github.com/argoproj/argo-cd/v2/util/io"
 	"github.com/argoproj/gitops-engine/pkg/sync/hook"
 	"github.com/google/go-cmp/cmp"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -185,6 +186,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 	app, err := appIf.Get(ctx, &appNameQuery)
 	if err != nil {
 		componentDiffResult.DiffError = err
+		log.Errorf("Error getting app %s: %v", foundApps.Items[0].Name, err)
 		return componentDiffResult
 	}
 	componentDiffResult.ArgoCdAppName = app.Name
@@ -192,6 +194,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 	resources, err := appIf.ManagedResources(ctx, &application.ResourcesQuery{ApplicationName: &app.Name, AppNamespace: &app.Namespace})
 	if err != nil {
 		componentDiffResult.DiffError = err
+		log.Errorf("Error getting (live)resources for app %s: %v", app.Name, err)
 		return componentDiffResult
 	}
 
@@ -206,6 +209,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 	manifests, err := appIf.GetManifests(ctx, &manifestQuery)
 	if err != nil {
 		componentDiffResult.DiffError = err
+		log.Errorf("Error getting manifests for app %s, revision %s: %v", app.Name, prBranch, err)
 		return componentDiffResult
 	}
 	diffOption.res = manifests
@@ -215,6 +219,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 	detailedProject, err := projIf.GetDetailedProject(ctx, &projectpkg.ProjectQuery{Name: app.Spec.Project})
 	if err != nil {
 		componentDiffResult.DiffError = err
+		log.Errorf("Error getting project %s: %v", app.Spec.Project, err)
 		return componentDiffResult
 	}
 
@@ -262,6 +267,7 @@ func GenerateDiffOfChangedComponents(ctx context.Context, componentPathList []st
 		currentDiffResult := generateDiffOfAComponent(ctx, componentPath, prBranch, repo, appIf, projIf, argoSettings)
 		if currentDiffResult.DiffError != nil {
 			hasComponentDiffErrors = true
+			err = currentDiffResult.DiffError
 		}
 		if currentDiffResult.HasDiff {
 			hasComponentDiff = true
