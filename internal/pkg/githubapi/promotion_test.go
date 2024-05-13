@@ -481,3 +481,54 @@ func TestGenerateNestedSourceRegexPromotionPlan(t *testing.T) {
 	)
 	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
 }
+
+func TestGeneratePromotionPlanWithPagination(t *testing.T) {
+	t.Parallel()
+	config := &cfg.Config{
+		PromotionPaths: []cfg.PromotionPath{
+			{
+				SourcePath: "prod/us-east-4/",
+				PromotionPrs: []cfg.PromotionPr{
+					{
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
+					},
+				},
+			},
+		},
+	}
+	expectedPromotion := map[string]PromotionInstance{
+		"prod/us-east-4/>prod/eu-east-1/|prod/eu-west-1/": {
+			ComputedSyncPaths: map[string]string{
+				"prod/eu-east-1/componentA": "prod/us-east-4/componentA",
+				"prod/eu-west-1/componentA": "prod/us-east-4/componentA",
+			},
+		},
+	}
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatchPages(
+			mock.GetReposPullsFilesByOwnerByRepoByPullNumber,
+			[]github.CommitFile{
+				{Filename: github.String(".ci-config/random-file.json")},
+				{Filename: github.String(".ci-config/random-file2.json")},
+			},
+			[]github.CommitFile{
+				{Filename: github.String("prod/us-east-4/componentA/file.yaml")},
+				{Filename: github.String("prod/us-east-4/componentA/file2.yaml")},
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.GetReposContentsByOwnerByRepoByPath,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mock.WriteError(
+					w,
+					http.StatusNotFound,
+					"no *optional* in-component telefonistka config file",
+				)
+			}),
+		),
+	)
+	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+}
