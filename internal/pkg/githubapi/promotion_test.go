@@ -507,6 +507,7 @@ func TestGeneratePromotionPlanWithPagination(t *testing.T) {
 			},
 		},
 	}
+	// Note the "relevant" files are in the second page, to ensure pagination is working
 	mockedHTTPClient := mock.NewMockedHTTPClient(
 		mock.WithRequestMatchPages(
 			mock.GetReposPullsFilesByOwnerByRepoByPullNumber,
