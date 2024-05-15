@@ -117,6 +117,8 @@ Configuration keys:
 |`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
 |`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
+|`commentArgocdDiffonPR`| Uses ArgoCD API to calculate expected changes to k8s state and comment the resulting "diff" as comment in the PR. Requires ARGOCD_* environment variables, see below. |
+|`autoMergeNoDiffPRs`| if true, Telefonistka will **merge** promotion PRs that are not expected to change the target clusters. Requires `commentArgocdDiffonPR` and possibly `autoApprovePromotionPrs`(depending on repo branch protection rules)|
 <!-- markdownlint-enable MD033 -->
 
 Example:
@@ -159,6 +161,8 @@ promotionPaths:
         - "clusters/prod/us-east4/c2"
 dryRunMode: true
 autoApprovePromotionPrs: true
+commentArgocdDiffonPR: true
+autoMergeNoDiffPRs: true
 toggleCommitStatus:
   override-terrafrom-pipeline: "github-action-terraform"
 ```
