@@ -41,6 +41,7 @@ type Config struct {
 	ToggleCommitStatus      map[string]string      `yaml:"toggleCommitStatus"`
 	WebhookEndpointRegexs   []WebhookEndpointRegex `yaml:"webhookEndpointRegexs"`
 	CommentArgocdDiffonPR   bool                   `yaml:"commentArgocdDiffonPR"`
+	AutoMergeNoDiffPRs      bool                   `yaml:"autoMergeNoDiffPRs"`
 }
 
 func ParseConfigFromYaml(y string) (*Config, error) {
