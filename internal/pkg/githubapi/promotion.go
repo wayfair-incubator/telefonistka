@@ -118,7 +118,7 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 		perPagePrFiles, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, opts)
 		prom.InstrumentGhCall(resp)
 		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
+			ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nstatus code=%v", err, resp.Response.Status)
 			return promotions, err
 		}
 		prFiles = append(prFiles, perPagePrFiles...)
