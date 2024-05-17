@@ -238,34 +238,41 @@ func GenerateDiffOfChangedComponents(ctx context.Context, componentPathList []st
 	// env var should be centralized
 	client, err := createArgoCdClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD client: %v", err)
 		return false, true, nil, err
 	}
 
 	conn, appIf, err := client.NewApplicationClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD app client: %v", err)
 		return false, true, nil, err
 	}
 	defer argoio.Close(conn)
 
 	conn, projIf, err := client.NewProjectClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD project client: %v", err)
 		return false, true, nil, err
 	}
 	defer argoio.Close(conn)
 
 	conn, settingsIf, err := client.NewSettingsClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD settings client: %v", err)
 		return false, true, nil, err
 	}
 	defer argoio.Close(conn)
 	argoSettings, err := settingsIf.Get(ctx, &settings.SettingsQuery{})
 	if err != nil {
+		log.Errorf("Error getting ArgoCD settings: %v", err)
 		return false, true, nil, err
 	}
 
+	log.Debugf("Checking diff for components: %v", componentPathList)
 	for _, componentPath := range componentPathList {
 		currentDiffResult := generateDiffOfAComponent(ctx, componentPath, prBranch, repo, appIf, projIf, argoSettings)
 		if currentDiffResult.DiffError != nil {
+			log.Errorf("Error generating diff for component %s: %v", componentPath, currentDiffResult.DiffError)
 			hasComponentDiffErrors = true
 			err = currentDiffResult.DiffError
 		}
