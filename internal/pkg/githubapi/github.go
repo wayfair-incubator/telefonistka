@@ -13,8 +13,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/cenkalti/backoff"
-	"github.com/google/go-github/v52/github"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-github/v62/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
@@ -737,7 +737,7 @@ func createCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.Tre
 		Tree:    tree,
 	}
 
-	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig)
+	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig, nil)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to create Git commit: err=%s\n", err) // TODO comment this error to PR

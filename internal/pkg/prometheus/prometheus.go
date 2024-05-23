@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )

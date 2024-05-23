@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
