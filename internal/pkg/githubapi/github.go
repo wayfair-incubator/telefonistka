@@ -13,6 +13,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/cenkalti/backoff"
 	"github.com/google/go-github/v52/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
@@ -414,12 +415,37 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 }
 
 func MergePr(details GhPrClientDetails, number *int) error {
+	operation := func() error {
+		err := tryMergePR(details, number)
+		if err != nil {
+			if isMergeErrorRetryable(err.Error()) {
+				if err != nil {
+					details.PrLogger.Warnf("Failed to merge PR: transient err=%v", err)
+				}
+				return err
+			}
+			details.PrLogger.Errorf("Failed to merge PR: permanent err=%v", err)
+			return backoff.Permanent(err)
+		}
+		return nil
+	}
+
+	err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+	if err != nil {
+		details.PrLogger.Errorf("Failed to merge PR: backoff err=%v", err)
+	}
+
+	return err
+}
+
+func tryMergePR(details GhPrClientDetails, number *int) error {
 	_, resp, err := details.GhClientPair.v3Client.PullRequests.Merge(details.Ctx, details.Owner, details.Repo, *number, "Auto-merge", nil)
 	prom.InstrumentGhCall(resp)
-	if err != nil {
-		details.PrLogger.Errorf("Failed to merge PR: err=%v", err)
-	}
 	return err
+}
+
+func isMergeErrorRetryable(errMessage string) bool {
+	return strings.Contains(errMessage, "405") && strings.Contains(errMessage, "try the merge again")
 }
 
 func (pm *prMetadata) DeSerialize(s string) error {
