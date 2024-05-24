@@ -42,7 +42,7 @@ func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, git
 	if err != nil {
 		panic(err)
 	}
-	var tempClient = github.NewClient(
+	tempClient := github.NewClient(
 		&http.Client{
 			Transport: atr,
 			Timeout:   time.Second * 30,
@@ -93,7 +93,7 @@ func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ct
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-	var client = github.NewClient(tc)
+	client := github.NewClient(tc)
 	if githubRestAltURL != "" {
 		client, _ = client.WithEnterpriseURLs(githubRestAltURL, githubRestAltURL)
 	}
