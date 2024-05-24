@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

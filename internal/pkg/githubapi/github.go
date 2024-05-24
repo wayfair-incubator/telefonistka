@@ -13,7 +13,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-github/v62/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
@@ -414,12 +415,38 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 }
 
 func MergePr(details GhPrClientDetails, number *int) error {
+	operation := func() error {
+		err := tryMergePR(details, number)
+		if err != nil {
+			if isMergeErrorRetryable(err.Error()) {
+				if err != nil {
+					details.PrLogger.Warnf("Failed to merge PR: transient err=%v", err)
+				}
+				return err
+			}
+			details.PrLogger.Errorf("Failed to merge PR: permanent err=%v", err)
+			return backoff.Permanent(err)
+		}
+		return nil
+	}
+
+	// Using default values, see https://pkg.go.dev/github.com/cenkalti/backoff#pkg-constants
+	err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+	if err != nil {
+		details.PrLogger.Errorf("Failed to merge PR: backoff err=%v", err)
+	}
+
+	return err
+}
+
+func tryMergePR(details GhPrClientDetails, number *int) error {
 	_, resp, err := details.GhClientPair.v3Client.PullRequests.Merge(details.Ctx, details.Owner, details.Repo, *number, "Auto-merge", nil)
 	prom.InstrumentGhCall(resp)
-	if err != nil {
-		details.PrLogger.Errorf("Failed to merge PR: err=%v", err)
-	}
 	return err
+}
+
+func isMergeErrorRetryable(errMessage string) bool {
+	return strings.Contains(errMessage, "405") && strings.Contains(errMessage, "try the merge again")
 }
 
 func (pm *prMetadata) DeSerialize(s string) error {
@@ -711,7 +738,7 @@ func createCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.Tre
 		Tree:    tree,
 	}
 
-	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig)
+	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig, nil)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to create Git commit: err=%s\n", err) // TODO comment this error to PR
