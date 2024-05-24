@@ -430,7 +430,7 @@ func MergePr(details GhPrClientDetails, number *int) error {
 		return nil
 	}
 
-        // Using default values, see https://pkg.go.dev/github.com/cenkalti/backoff#pkg-constants
+	// Using default values, see https://pkg.go.dev/github.com/cenkalti/backoff#pkg-constants
 	err := backoff.Retry(operation, backoff.NewExponentialBackOff())
 	if err != nil {
 		details.PrLogger.Errorf("Failed to merge PR: backoff err=%v", err)
