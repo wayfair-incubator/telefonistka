@@ -37,14 +37,15 @@ func init() { //nolint:gochecknoinits
 	rootCmd.AddCommand(serveCmd)
 }
 
-func handleWebhook(ctx context.Context, githubWebhookSecret []byte, mainGhClientCache *lru.Cache[string, githubapi.GhClientPair], prApproverGhClientCache *lru.Cache[string, githubapi.GhClientPair]) func(http.ResponseWriter, *http.Request) {
+func handleWebhook(githubWebhookSecret []byte, mainGhClientCache *lru.Cache[string, githubapi.GhClientPair], prApproverGhClientCache *lru.Cache[string, githubapi.GhClientPair]) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
 		githubapi.HandleEvent(r, ctx, mainGhClientCache, prApproverGhClientCache, githubWebhookSecret)
 	}
 }
 
 func serve() {
-	ctx := context.Background()
 	githubWebhookSecret := []byte(getCrucialEnv("GITHUB_WEBHOOK_SECRET"))
 	livenessChecker := health.NewChecker() // No checks for the moment, other then the http server availability
 	readinessChecker := health.NewChecker()
@@ -54,7 +55,7 @@ func serve() {
 	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/webhook", handleWebhook(ctx, githubWebhookSecret, mainGhClientCache, prApproverGhClientCache))
+	mux.HandleFunc("/webhook", handleWebhook(githubWebhookSecret, mainGhClientCache, prApproverGhClientCache))
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/live", health.NewHandler(livenessChecker))
 	mux.Handle("/ready", health.NewHandler(readinessChecker))

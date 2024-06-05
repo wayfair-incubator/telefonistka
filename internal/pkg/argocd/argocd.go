@@ -163,12 +163,14 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 	// Find ArgoCD application by the path SHA1 label selector and repo name
 	// That label is assumed to be pupulated by the ApplicationSet controller(or apps of apps  or similar).
 	labelSelector := fmt.Sprintf("telefonistka.io/component-path-sha1=%s", componentPathSha1)
+	log.Debugf("Using label selector: %s", labelSelector)
 	appLabelQuery := application.ApplicationQuery{
 		Selector: &labelSelector,
 		Repo:     &repo,
 	}
 	foundApps, err := appIf.List(ctx, &appLabelQuery)
 	if err != nil {
+		log.Errorf("Error listing ArgoCD applications: %v", err)
 		componentDiffResult.DiffError = err
 		return componentDiffResult
 	}
@@ -177,6 +179,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 		return componentDiffResult
 	}
 
+	log.Debugf("Found ArgoCD application: %s", foundApps.Items[0].Name)
 	// Get the application and its resources, resources are the live state of the application objects.
 	refreshType := string(argoappv1.RefreshTypeHard)
 	appNameQuery := application.ApplicationQuery{
@@ -189,6 +192,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 		log.Errorf("Error getting app %s: %v", foundApps.Items[0].Name, err)
 		return componentDiffResult
 	}
+	log.Debugf("Got ArgoCD app %s", app.Name)
 	componentDiffResult.ArgoCdAppName = app.Name
 	componentDiffResult.ArgoCdAppURL = fmt.Sprintf("%s/applications/%s", argoSettings.URL, app.Name)
 	resources, err := appIf.ManagedResources(ctx, &application.ResourcesQuery{ApplicationName: &app.Name, AppNamespace: &app.Namespace})
@@ -197,6 +201,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 		log.Errorf("Error getting (live)resources for app %s: %v", app.Name, err)
 		return componentDiffResult
 	}
+	log.Debugf("Got (live)resources for app %s", app.Name)
 
 	// Get the application manifests, these are the target state of the application objects, taken from the git repo, specificly from the PR branch.
 	diffOption := &DifferenceOption{}
@@ -212,6 +217,7 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 		log.Errorf("Error getting manifests for app %s, revision %s: %v", app.Name, prBranch, err)
 		return componentDiffResult
 	}
+	log.Debugf("Got manifests for app %s, revision %s", app.Name, prBranch)
 	diffOption.res = manifests
 	diffOption.revision = prBranch
 
@@ -238,34 +244,41 @@ func GenerateDiffOfChangedComponents(ctx context.Context, componentPathList []st
 	// env var should be centralized
 	client, err := createArgoCdClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD client: %v", err)
 		return false, true, nil, err
 	}
 
 	conn, appIf, err := client.NewApplicationClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD app client: %v", err)
 		return false, true, nil, err
 	}
 	defer argoio.Close(conn)
 
 	conn, projIf, err := client.NewProjectClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD project client: %v", err)
 		return false, true, nil, err
 	}
 	defer argoio.Close(conn)
 
 	conn, settingsIf, err := client.NewSettingsClient()
 	if err != nil {
+		log.Errorf("Error creating ArgoCD settings client: %v", err)
 		return false, true, nil, err
 	}
 	defer argoio.Close(conn)
 	argoSettings, err := settingsIf.Get(ctx, &settings.SettingsQuery{})
 	if err != nil {
+		log.Errorf("Error getting ArgoCD settings: %v", err)
 		return false, true, nil, err
 	}
 
+	log.Debugf("Checking ArgoCD diff for components: %v", componentPathList)
 	for _, componentPath := range componentPathList {
 		currentDiffResult := generateDiffOfAComponent(ctx, componentPath, prBranch, repo, appIf, projIf, argoSettings)
 		if currentDiffResult.DiffError != nil {
+			log.Errorf("Error generating diff for component %s: %v", componentPath, currentDiffResult.DiffError)
 			hasComponentDiffErrors = true
 			err = currentDiffResult.DiffError
 		}
