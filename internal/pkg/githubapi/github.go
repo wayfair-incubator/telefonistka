@@ -3,7 +3,7 @@ package githubapi
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -466,7 +466,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 // Max length of branch name is 250 characters
 func generateSafePromotionBranchName(prNumber int, originalBranchName string, targetPaths []string) string {
 	targetPathsBa := []byte(strings.Join(targetPaths, "_"))
-	hasher := sha1.New()
+	hasher := sha1.New() //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
 	hasher.Write(targetPathsBa)
 	uniqBranchNameSufix := firstN(hex.EncodeToString(hasher.Sum(nil)), 12)
 	return fmt.Sprintf("promotions/%v-%v-%v", prNumber, firstN(strings.Replace(originalBranchName, "/", "-", -1), 200), uniqBranchNameSufix)
