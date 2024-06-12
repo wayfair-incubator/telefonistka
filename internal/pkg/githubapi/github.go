@@ -3,7 +3,9 @@ package githubapi
 import (
 	"bytes"
 	"context"
+	"crypto/sha1" //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -353,7 +355,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 				return err
 			}
 
-			newBranchName := fmt.Sprintf("promotions/%v-%v-%v8", ghPrClientDetails.PrNumber, strings.Replace(ghPrClientDetails.Ref, "/", "-", -1), strings.Replace(strings.Join(promotion.Metadata.TargetPaths, "_"), "/", "-", -1)) // TODO max branch name length is 250 - make sure this fit
+			newBranchName := generateSafePromotionBranchName(ghPrClientDetails.PrNumber, ghPrClientDetails.Ref, promotion.Metadata.TargetPaths)
 
 			newBranchRef, err := createBranch(ghPrClientDetails, commit, newBranchName)
 			if err != nil {
@@ -412,6 +414,25 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 		commentPlanInPR(ghPrClientDetails, promotions)
 	}
 	return nil
+}
+
+// Creating a unique branch name based on the PR number, PR ref and the promotion target paths
+// Max length of branch name is 250 characters
+func generateSafePromotionBranchName(prNumber int, originalBranchName string, targetPaths []string) string {
+	targetPathsBa := []byte(strings.Join(targetPaths, "_"))
+	hasher := sha1.New() //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
+	hasher.Write(targetPathsBa)
+	uniqBranchNameSuffix := firstN(hex.EncodeToString(hasher.Sum(nil)), 12)
+	safeOriginalBranchName := firstN(strings.Replace(originalBranchName, "/", "-", -1), 200)
+	return fmt.Sprintf("promotions/%v-%v-%v", prNumber, safeOriginalBranchName, uniqBranchNameSuffix)
+}
+
+func firstN(str string, n int) string {
+	v := []rune(str)
+	if n >= len(v) {
+		return str
+	}
+	return string(v[:n])
 }
 
 func MergePr(details GhPrClientDetails, number *int) error {
