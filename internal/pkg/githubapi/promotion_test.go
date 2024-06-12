@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
@@ -466,6 +466,58 @@ func TestGenerateNestedSourceRegexPromotionPlan(t *testing.T) {
 			[]github.CommitFile{
 				{Filename: github.String("prod/us-east-4/teamA/namespaceB/componentA/file.yaml")},
 				{Filename: github.String("prod/us-east-4/teamA/namespaceB/componentA/aSubDir/file3.yaml")},
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.GetReposContentsByOwnerByRepoByPath,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mock.WriteError(
+					w,
+					http.StatusNotFound,
+					"no *optional* in-component telefonistka config file",
+				)
+			}),
+		),
+	)
+	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+}
+
+func TestGeneratePromotionPlanWithPagination(t *testing.T) {
+	t.Parallel()
+	config := &cfg.Config{
+		PromotionPaths: []cfg.PromotionPath{
+			{
+				SourcePath: "prod/us-east-4/",
+				PromotionPrs: []cfg.PromotionPr{
+					{
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
+					},
+				},
+			},
+		},
+	}
+	expectedPromotion := map[string]PromotionInstance{
+		"prod/us-east-4/>prod/eu-east-1/|prod/eu-west-1/": {
+			ComputedSyncPaths: map[string]string{
+				"prod/eu-east-1/componentA": "prod/us-east-4/componentA",
+				"prod/eu-west-1/componentA": "prod/us-east-4/componentA",
+			},
+		},
+	}
+	// Note the "relevant" files are in the second page, to ensure pagination is working
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatchPages(
+			mock.GetReposPullsFilesByOwnerByRepoByPullNumber,
+			[]github.CommitFile{
+				{Filename: github.String(".ci-config/random-file.json")},
+				{Filename: github.String(".ci-config/random-file2.json")},
+			},
+			[]github.CommitFile{
+				{Filename: github.String("prod/us-east-4/componentA/file.yaml")},
+				{Filename: github.String("prod/us-east-4/componentA/file2.yaml")},
 			},
 		),
 		mock.WithRequestMatchHandler(

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	log "github.com/sirupsen/logrus"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
@@ -112,11 +112,22 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 // This function generates a list of "components" that where changed in the PR and are relevant for promotion)
 func generateListOfRelevantComponents(ghPrClientDetails GhPrClientDetails, config *cfg.Config) (relevantComponents map[relevantComponent]struct{}, err error) {
 	relevantComponents = make(map[relevantComponent]struct{})
-	prFiles, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, &github.ListOptions{})
-	prom.InstrumentGhCall(resp)
-	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nresponse=%v", err, resp)
-		return nil, err
+
+	// Get the list of files in the PR, with pagination
+	opts := &github.ListOptions{}
+	prFiles := []*github.CommitFile{}
+	for {
+		perPagePrFiles, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, opts)
+		prom.InstrumentGhCall(resp)
+		if err != nil {
+			ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nstatus code=%v", err, resp.Response.Status)
+			return nil, err
+		}
+		prFiles = append(prFiles, perPagePrFiles...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
 	}
 
 	for _, changedFile := range prFiles {

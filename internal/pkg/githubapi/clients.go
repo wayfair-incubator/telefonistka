@@ -2,13 +2,14 @@ package githubapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/shurcooL/githubv4"
 	log "github.com/sirupsen/logrus"
@@ -41,25 +42,17 @@ func getAppInstallationId(githubAppPrivateKeyPath string, githubAppId int64, git
 	if err != nil {
 		panic(err)
 	}
-	var tempClient *github.Client
+	tempClient := github.NewClient(
+		&http.Client{
+			Transport: atr,
+			Timeout:   time.Second * 30,
+		})
 
 	if githubRestAltURL != "" {
-		tempClient, err = github.NewEnterpriseClient(
-			githubRestAltURL,
-			githubRestAltURL,
-			&http.Client{
-				Transport: atr,
-				Timeout:   time.Second * 30,
-			})
+		tempClient, err = tempClient.WithEnterpriseURLs(githubRestAltURL, githubRestAltURL)
 		if err != nil {
 			log.Fatalf("failed to create git client for app: %v\n", err)
 		}
-	} else {
-		tempClient = github.NewClient(
-			&http.Client{
-				Transport: atr,
-				Timeout:   time.Second * 30,
-			})
 	}
 
 	installations, _, err := tempClient.Apps.ListInstallations(ctx, &github.ListOptions{})
@@ -88,7 +81,7 @@ func createGithubAppRestClient(githubAppPrivateKeyPath string, githubAppId int64
 
 	if githubRestAltURL != "" {
 		itr.BaseURL = githubRestAltURL
-		client, _ = github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, &http.Client{Transport: itr})
+		client, _ = github.NewClient(&http.Client{Transport: itr}).WithEnterpriseURLs(githubRestAltURL, githubRestAltURL)
 	} else {
 		client = github.NewClient(&http.Client{Transport: itr})
 	}
@@ -100,11 +93,9 @@ func createGithubRestClient(githubOauthToken string, githubRestAltURL string, ct
 		&oauth2.Token{AccessToken: githubOauthToken},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-	var client *github.Client
+	client := github.NewClient(tc)
 	if githubRestAltURL != "" {
-		client, _ = github.NewEnterpriseClient(githubRestAltURL, githubRestAltURL, tc)
-	} else {
-		client = github.NewClient(tc)
+		client, _ = client.WithEnterpriseURLs(githubRestAltURL, githubRestAltURL)
 	}
 
 	return client
@@ -147,8 +138,8 @@ func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string,
 	githubAppPrivateKeyPath := getCrucialEnv(ghAppPKeyPathEnvVarName)
 	githubHost := getEnv("GITHUB_HOST", "")
 	if githubHost != "" {
-		githubRestAltURL = "https://" + githubHost + "/api/v3"
-		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
+		githubRestAltURL = fmt.Sprintf("https://%s/api/v3", githubHost)
+		githubGraphqlAltURL = fmt.Sprintf("https://%s/api/graphql", githubHost)
 		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
 		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
 	} else {
@@ -174,8 +165,8 @@ func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientP
 	var githubGraphqlAltURL string
 	githubHost := getEnv("GITHUB_HOST", "")
 	if githubHost != "" {
-		githubRestAltURL = "https://" + githubHost + "/api/v3"
-		githubGraphqlAltURL = "https://" + githubHost + "/api/graphql"
+		githubRestAltURL = fmt.Sprintf("https://%s/api/v3", githubHost)
+		githubGraphqlAltURL = fmt.Sprintf("https://%s/api/graphql", githubHost)
 		log.Infof("Github REST API endpoint is configured to %s", githubRestAltURL)
 		log.Infof("Github graphql API endpoint is configured to %s", githubGraphqlAltURL)
 	} else {

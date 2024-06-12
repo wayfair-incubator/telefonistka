@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-test/deep"
-	"github.com/google/go-github/v52/github"
+	"github.com/google/go-github/v62/github"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 )
 

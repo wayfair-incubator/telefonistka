@@ -3,7 +3,9 @@ package githubapi
 import (
 	"bytes"
 	"context"
+	"crypto/sha1" //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,7 +15,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/google/go-github/v52/github"
+	"github.com/cenkalti/backoff/v4"
+	"github.com/google/go-github/v62/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
@@ -400,7 +403,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 				return err
 			}
 
-			newBranchName := fmt.Sprintf("promotions/%v-%v-%v8", ghPrClientDetails.PrNumber, strings.Replace(ghPrClientDetails.Ref, "/", "-", -1), strings.Replace(strings.Join(promotion.Metadata.TargetPaths, "_"), "/", "-", -1)) // TODO max branch name length is 250 - make sure this fit
+			newBranchName := generateSafePromotionBranchName(ghPrClientDetails.PrNumber, ghPrClientDetails.Ref, promotion.Metadata.TargetPaths)
 
 			newBranchRef, err := createBranch(ghPrClientDetails, commit, newBranchName)
 			if err != nil {
@@ -461,13 +464,58 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 	return nil
 }
 
+// Creating a unique branch name based on the PR number, PR ref and the promotion target paths
+// Max length of branch name is 250 characters
+func generateSafePromotionBranchName(prNumber int, originalBranchName string, targetPaths []string) string {
+	targetPathsBa := []byte(strings.Join(targetPaths, "_"))
+	hasher := sha1.New() //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
+	hasher.Write(targetPathsBa)
+	uniqBranchNameSuffix := firstN(hex.EncodeToString(hasher.Sum(nil)), 12)
+	safeOriginalBranchName := firstN(strings.Replace(originalBranchName, "/", "-", -1), 200)
+	return fmt.Sprintf("promotions/%v-%v-%v", prNumber, safeOriginalBranchName, uniqBranchNameSuffix)
+}
+
+func firstN(str string, n int) string {
+	v := []rune(str)
+	if n >= len(v) {
+		return str
+	}
+	return string(v[:n])
+}
+
 func MergePr(details GhPrClientDetails, number *int) error {
+	operation := func() error {
+		err := tryMergePR(details, number)
+		if err != nil {
+			if isMergeErrorRetryable(err.Error()) {
+				if err != nil {
+					details.PrLogger.Warnf("Failed to merge PR: transient err=%v", err)
+				}
+				return err
+			}
+			details.PrLogger.Errorf("Failed to merge PR: permanent err=%v", err)
+			return backoff.Permanent(err)
+		}
+		return nil
+	}
+
+	// Using default values, see https://pkg.go.dev/github.com/cenkalti/backoff#pkg-constants
+	err := backoff.Retry(operation, backoff.NewExponentialBackOff())
+	if err != nil {
+		details.PrLogger.Errorf("Failed to merge PR: backoff err=%v", err)
+	}
+
+	return err
+}
+
+func tryMergePR(details GhPrClientDetails, number *int) error {
 	_, resp, err := details.GhClientPair.v3Client.PullRequests.Merge(details.Ctx, details.Owner, details.Repo, *number, "Auto-merge", nil)
 	prom.InstrumentGhCall(resp)
-	if err != nil {
-		details.PrLogger.Errorf("Failed to merge PR: err=%v", err)
-	}
 	return err
+}
+
+func isMergeErrorRetryable(errMessage string) bool {
+	return strings.Contains(errMessage, "405") && strings.Contains(errMessage, "try the merge again")
 }
 
 func (pm *prMetadata) DeSerialize(s string) error {
@@ -759,7 +807,7 @@ func createCommit(ghPrClientDetails GhPrClientDetails, treeEntries []*github.Tre
 		Tree:    tree,
 	}
 
-	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig)
+	commit, resp, err := ghPrClientDetails.GhClientPair.v3Client.Git.CreateCommit(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, newCommitConfig, nil)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to create Git commit: err=%s\n", err) // TODO comment this error to PR
