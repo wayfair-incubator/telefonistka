@@ -422,8 +422,9 @@ func generateSafePromotionBranchName(prNumber int, originalBranchName string, ta
 	targetPathsBa := []byte(strings.Join(targetPaths, "_"))
 	hasher := sha1.New() //nolint:gosec // G505: Blocklisted import crypto/sha1: weak cryptographic primitive (gosec), this is not a cryptographic use case
 	hasher.Write(targetPathsBa)
-	uniqBranchNameSufix := firstN(hex.EncodeToString(hasher.Sum(nil)), 12)
-	return fmt.Sprintf("promotions/%v-%v-%v", prNumber, firstN(strings.Replace(originalBranchName, "/", "-", -1), 200), uniqBranchNameSufix)
+	uniqBranchNameSuffix := firstN(hex.EncodeToString(hasher.Sum(nil)), 12)
+	safeOriginalBranchName := firstN(strings.Replace(originalBranchName, "/", "-", -1), 200)
+	return fmt.Sprintf("promotions/%v-%v-%v", prNumber, safeOriginalBranchName, uniqBranchNameSuffix)
 }
 
 func firstN(str string, n int) string {
