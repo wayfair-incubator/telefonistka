@@ -22,6 +22,7 @@ import (
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
+	"golang.org/x/exp/maps"
 )
 
 type promotionInstanceMetaData struct {
@@ -49,6 +50,7 @@ type GhPrClientDetails struct {
 type prMetadata struct {
 	OriginalPrAuthor          string                            `json:"originalPrAuthor"`
 	OriginalPrNumber          int                               `json:"originalPrNumber"`
+	PromotedPaths             []string                          `json:"promotedPaths"`
 	PreviousPromotionMetadata map[int]promotionInstanceMetaData `json:"previousPromotionPaths"`
 }
 
@@ -107,12 +109,21 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 			ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
 		}
 		if config.CommentArgocdDiffonPR {
-			componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
-			if err != nil {
-				prHandleError = err
-				ghPrClientDetails.PrLogger.Errorf("Failed to get list of changed components: err=%s\n", err)
+			var componentPathList []string
+
+			// Promotion PR have the list of paths to promote in the PR metadata
+			// For non promotion PR, we will generate the list of changed components based the PR changed files and the telefonistka configuration(sourcePath)
+			if DoesPrHasLabel(*eventPayload, "promotion") {
+				componentPathList = ghPrClientDetails.PrMetadata.PromotedPaths
+			} else {
+				componentPathList, err = generateListOfChangedComponentPaths(ghPrClientDetails, config)
+				if err != nil {
+					prHandleError = err
+					ghPrClientDetails.PrLogger.Errorf("Failed to get list of changed components: err=%s\n", err)
+				}
 			}
-			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentPathList, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL)
+
+			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentPathList, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.UseSHALabelForArgoDicovery)
 			if err != nil {
 				prHandleError = err
 				ghPrClientDetails.PrLogger.Errorf("Failed to get ArgoCD diff information: err=%s\n", err)
@@ -127,7 +138,9 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 					} else {
 						ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", *eventPayload.PullRequest.Number, prLables)
 					}
-					if DoesPrHasLabel(*eventPayload, "promotion") && config.AutoMergeNoDiffPRs {
+					// If the PR is a promotion PR and the diff is empty, we can auto-merge it
+					// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
+					if DoesPrHasLabel(*eventPayload, "promotion") && config.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
 						ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
 						err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
 						if err != nil {
@@ -859,6 +872,8 @@ func generatePromotionPrBody(ghPrClientDetails GhPrClientDetails, components str
 	}
 	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].TargetPaths = targetPaths
 	// newPrMetadata.PreviousPromotionMetadata[ghPrClientDetails.PrNumber].SourcePath = sourcePath
+
+	newPrMetadata.PromotedPaths = maps.Keys(promotion.ComputedSyncPaths)
 
 	newPrBody = fmt.Sprintf("Promotion path(%s):\n\n", components)
 
