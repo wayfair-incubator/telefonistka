@@ -75,7 +75,7 @@ Environment variables for the webhook process:
 
 `APPROVER_GITHUB_OAUTH_TOKEN` GitHub OAuth token for automatically approving promotion PRs
 
-`APPROVER_GITHUB_APP_ID` As an alternative to `APPROVER_GITHUB_OAUTH_TOKEN`, you can also use GitHub App style of authentication for the automated PR approval process, this variable supply the Application ID 
+`APPROVER_GITHUB_APP_ID` is an alternative to `APPROVER_GITHUB_OAUTH_TOKEN`. You can also use GitHub App style of authentication for the automated PR approval process. This variable supplies the Application ID.
 
 `APPROVER_GITHUB_APP_PRIVATE_KEY_PATH` As an alternative to `APPROVER_GITHUB_OAUTH_TOKEN`, you can also use GitHub App style of authentication for the automated PR approval process, this variable supply the path to the Github Application private key file(in .pem format)
 
