@@ -75,6 +75,10 @@ Environment variables for the webhook process:
 
 `APPROVER_GITHUB_OAUTH_TOKEN` GitHub OAuth token for automatically approving promotion PRs
 
+`APPROVER_GITHUB_APP_ID` As an alternative to `APPROVER_GITHUB_OAUTH_TOKEN`, you can also use GitHub App style of authentication for the automated PR approval process, this variable supply the Application ID 
+
+`APPROVER_GITHUB_APP_PRIVATE_KEY_PATH` As an alternative to `APPROVER_GITHUB_OAUTH_TOKEN`, you can also use GitHub App style of authentication for the automated PR approval process, this variable supply the path to the Github Application private key file(in .pem format)
+
 `GITHUB_OAUTH_TOKEN` GitHub main OAuth token for all other GH operations
 
 `GITHUB_HOST` Host name for github API, needed for Github Enterprise Server, should not include http scheme and path, e.g. :`my-gh-host.com`
