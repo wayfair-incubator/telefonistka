@@ -12,6 +12,42 @@ import (
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 )
 
+func generatePromotionPlanMetadataTestHelper(t *testing.T, config *cfg.Config, expectedPromotion map[string]PromotionInstance, mockedHTTPClient *http.Client) {
+	t.Helper()
+	ctx := context.Background()
+	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
+	labelName := "fast-promotion"
+
+	ghPrClientDetails := GhPrClientDetails{
+		Ctx:          ctx,
+		GhClientPair: &ghClientPair,
+		Owner:        "AnOwner",
+		Repo:         "Arepo",
+		PrNumber:     120,
+		Ref:          "Abranch",
+		PrLogger: log.WithFields(log.Fields{
+			"repo":     "AnOwner/Arepo",
+			"prNumber": 120,
+		}),
+		Labels: []*github.Label{
+			{Name: &labelName},
+		},
+	}
+
+	promotionPlan, err := GeneratePromotionPlan(ghPrClientDetails, config, "main")
+	if err != nil {
+		t.Fatalf("Failed to generate promotion plan: err=%s", err)
+	}
+
+	// Just check the metadata, this can ignore issues with promotion logic itself
+	// Like if a whole element is missing from the generated promotion plan.
+	for k, v := range expectedPromotion {
+		if diff := deep.Equal(v.Metadata, promotionPlan[k].Metadata); diff != nil {
+			t.Error(diff)
+		}
+	}
+}
+
 func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, expectedPromotion map[string]PromotionInstance, mockedHTTPClient *http.Client) {
 	t.Helper()
 	ctx := context.Background()
@@ -532,4 +568,119 @@ func TestGeneratePromotionPlanWithPagination(t *testing.T) {
 		),
 	)
 	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+}
+
+// TestGeneratePromotionMetadataWithOutDesc tests the case where the target description is set
+func TestGeneratePromotionMetadataWithDesc(t *testing.T) {
+	t.Parallel()
+	config := &cfg.Config{
+		PromotionPaths: []cfg.PromotionPath{
+			{
+				SourcePath: "prod/us-east-4/",
+				PromotionPrs: []cfg.PromotionPr{
+					{
+						TargetDescription: "foobar2", // This is tested config key
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						},
+					},
+				},
+			},
+		},
+	}
+	expectedPromotion := map[string]PromotionInstance{
+		"prod/us-east-4/>prod/eu-east-1/|prod/eu-west-1/": {
+			ComputedSyncPaths: map[string]string{
+				"prod/eu-east-1/componentA": "prod/us-east-4/componentA",
+				"prod/eu-west-1/componentA": "prod/us-east-4/componentA",
+			},
+			Metadata: PromotionInstanceMetaData{
+				SourcePath:                     "prod/us-east-4/",
+				TargetDescription:              "foobar2", // This is tested config key
+				TargetPaths:                    []string{"prod/eu-east-1/", "prod/eu-west-1/"},
+				PerComponentSkippedTargetPaths: map[string][]string{},
+				ComponentNames:                 []string{"componentA"},
+			},
+		},
+	}
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposPullsFilesByOwnerByRepoByPullNumber,
+			[]github.CommitFile{
+				{Filename: github.String("prod/us-east-4/componentA/file.yaml")},
+				{Filename: github.String("prod/us-east-4/componentA/file2.yaml")},
+				{Filename: github.String("prod/us-east-4/componentA/aSubDir/file3.yaml")},
+				{Filename: github.String(".ci-config/random-file.json")},
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.GetReposContentsByOwnerByRepoByPath,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mock.WriteError(
+					w,
+					http.StatusNotFound,
+					"no *optional* in-component telefonistka config file",
+				)
+			}),
+		),
+	)
+	generatePromotionPlanMetadataTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+}
+
+// This test is similar to the previous one, but the TargetDescription is not set in the config
+func TestGeneratePromotionMetadataWithOutDesc(t *testing.T) {
+	t.Parallel()
+	config := &cfg.Config{
+		PromotionPaths: []cfg.PromotionPath{
+			{
+				SourcePath: "prod/us-east-4/",
+				PromotionPrs: []cfg.PromotionPr{
+					{
+						TargetPaths: []string{
+							"prod/eu-west-1/",
+							"prod/eu-east-1/",
+						}, // TargetDescription is not set in this case
+					},
+				},
+			},
+		},
+	}
+	expectedPromotion := map[string]PromotionInstance{
+		"prod/us-east-4/>prod/eu-east-1/|prod/eu-west-1/": {
+			ComputedSyncPaths: map[string]string{
+				"prod/eu-east-1/componentA": "prod/us-east-4/componentA",
+				"prod/eu-west-1/componentA": "prod/us-east-4/componentA",
+			},
+			Metadata: PromotionInstanceMetaData{
+				SourcePath:                     "prod/us-east-4/",
+				TargetDescription:              "prod/eu-east-1/ prod/eu-west-1/", // This is tested config key
+				TargetPaths:                    []string{"prod/eu-east-1/", "prod/eu-west-1/"},
+				PerComponentSkippedTargetPaths: map[string][]string{},
+				ComponentNames:                 []string{"componentA"},
+			},
+		},
+	}
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposPullsFilesByOwnerByRepoByPullNumber,
+			[]github.CommitFile{
+				{Filename: github.String("prod/us-east-4/componentA/file.yaml")},
+				{Filename: github.String("prod/us-east-4/componentA/file2.yaml")},
+				{Filename: github.String("prod/us-east-4/componentA/aSubDir/file3.yaml")},
+				{Filename: github.String(".ci-config/random-file.json")},
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.GetReposContentsByOwnerByRepoByPath,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mock.WriteError(
+					w,
+					http.StatusNotFound,
+					"no *optional* in-component telefonistka config file",
+				)
+			}),
+		),
+	)
+	generatePromotionPlanMetadataTestHelper(t, config, expectedPromotion, mockedHTTPClient)
 }
