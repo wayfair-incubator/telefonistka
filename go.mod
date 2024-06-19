@@ -4,8 +4,9 @@ go 1.22
 
 toolchain go1.22.1
 
+require github.com/alexliesenfeld/health v0.8.0
+
 require (
-	github.com/alexliesenfeld/health v0.8.0
 	github.com/argoproj/argo-cd/v2 v2.11.2
 	github.com/argoproj/gitops-engine v0.7.1-0.20240416142647-fbecbb86e412
 	github.com/bradleyfalzon/ghinstallation/v2 v2.10.0

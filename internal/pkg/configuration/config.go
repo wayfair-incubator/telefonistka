@@ -20,7 +20,8 @@ type Condition struct {
 }
 
 type PromotionPr struct {
-	TargetPaths []string `yaml:"targetPaths"`
+	TargetDescription string   `yaml:"targetDescription"`
+	TargetPaths       []string `yaml:"targetPaths"`
 }
 
 type PromotionPath struct {
@@ -35,14 +36,16 @@ type Config struct {
 	PromotionPaths []PromotionPath `yaml:"promotionPaths"`
 
 	// Generic configuration
-	PromtionPrLables           []string               `yaml:"promtionPRlables"`
-	DryRunMode                 bool                   `yaml:"dryRunMode"`
-	AutoApprovePromotionPrs    bool                   `yaml:"autoApprovePromotionPrs"`
-	ToggleCommitStatus         map[string]string      `yaml:"toggleCommitStatus"`
-	WebhookEndpointRegexs      []WebhookEndpointRegex `yaml:"webhookEndpointRegexs"`
-	CommentArgocdDiffonPR      bool                   `yaml:"commentArgocdDiffonPR"`
-	AutoMergeNoDiffPRs         bool                   `yaml:"autoMergeNoDiffPRs"`
-	UseSHALabelForArgoDicovery bool                   `yaml:"useSHALabelForArgoDicovery"`
+
+	PromtionPrLables             []string               `yaml:"promtionPRlables"`
+	DryRunMode                   bool                   `yaml:"dryRunMode"`
+	AutoApprovePromotionPrs      bool                   `yaml:"autoApprovePromotionPrs"`
+	ToggleCommitStatus           map[string]string      `yaml:"toggleCommitStatus"`
+	WebhookEndpointRegexs        []WebhookEndpointRegex `yaml:"webhookEndpointRegexs"`
+	WhProxtSkipTLSVerifyUpstream bool                   `yaml:"whProxtSkipTLSVerifyUpstream"`
+	CommentArgocdDiffonPR        bool                   `yaml:"commentArgocdDiffonPR"`
+	AutoMergeNoDiffPRs           bool                   `yaml:"autoMergeNoDiffPRs"`
+	UseSHALabelForArgoDicovery   bool                   `yaml:"useSHALabelForArgoDicovery"`
 }
 
 func ParseConfigFromYaml(y string) (*Config, error) {

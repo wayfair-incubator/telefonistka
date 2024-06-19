@@ -425,7 +425,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 			}
 
 			components := strings.Join(promotion.Metadata.ComponentNames, ",")
-			newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, strings.Join(promotion.Metadata.TargetPaths, " "))
+			newPrTitle := fmt.Sprintf("🚀 Promotion: %s ➡️  %s", components, promotion.Metadata.TargetDescription)
 
 			var originalPrAuthor string
 			// If the triggering PR was opened manually and it doesn't include in-body metadata, use the PR author
