@@ -20,7 +20,8 @@ type Condition struct {
 }
 
 type PromotionPr struct {
-	TargetPaths []string `yaml:"targetPaths"`
+	TargetDescription string   `yaml:"targetDescription"`
+	TargetPaths       []string `yaml:"targetPaths"`
 }
 
 type PromotionPath struct {

@@ -110,6 +110,7 @@ Configuration keys:
 |`promotionPaths[0].conditions.autoMerge`| Boolean value. If set to true, PR will be automatically merged after it is created.|
 |`promotionPaths[0].promotionPrs`|  Array of structures, each element represent a PR that will be opened when files are changed under `sourcePath`. Multiple elements means multiple PR will be opened|
 |`promotionPaths[0].promotionPrs[0].targetPaths`| Array of strings, each element represent a directory to by synced from the changed component under  `sourcePath`. Multiple elements means multiple directories will be synced in a PR|
+|`promotionPaths[0].promotionPrs[0].targetDescription`| An optional string that describes the target paths, will be used in the promotion PR titles, for example "All Staging Clusters" or "Production Tier 2 Clusters". If this value is not provided Telefonistka will concatenate all `targetPaths` in the PR title which can make it very long and unreadable |
 |`dryRunMode`| if true, the bot will just comment the planned promotion on the merged PR|
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
 |`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
@@ -123,7 +124,8 @@ promotionPaths:
     conditions:
       autoMerge: true
     promotionPrs:
-      - targetPaths:
+      - targetDescription: "All non-production clusters"
+        targetPaths:
         - "clusters/dev/us-east4/c2"
         - "clusters/lab/europe-west4/c1"
         - "clusters/staging/us-central1/c1"
@@ -134,9 +136,11 @@ promotionPaths:
       prHasLabels:
         - "quick_promotion" # This flow will run only if PR has "quick_promotion" label, see targetPaths below
     promotionPrs:
-      - targetPaths:
+      - targetDescription: "Production clusters tier 1"
+        targetPaths:
         - "clusters/prod/us-west1/c2" # First PR for only a single cluster
-      - targetPaths:
+      - targetDescription: "Production clusters tier 2"
+        targetPaths:
         - "clusters/prod/europe-west3/c2" # 2nd PR will sync all 4 remaining clusters
         - "clusters/prod/europe-west4/c2"
         - "clusters/prod/us-central1/c2"
