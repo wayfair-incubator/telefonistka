@@ -3,6 +3,7 @@ package githubapi
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,8 +58,14 @@ func generateListOfEndpoints(listOfChangedFiles []string, config *configuration.
 	return maps.Keys(endpoints)
 }
 
-func proxyRequest(ctx context.Context, originalHttpRequest *http.Request, body []byte, endpoint string, responses chan<- string) {
-	client := &http.Client{}
+func proxyRequest(ctx context.Context, skipTLSVerify bool, originalHttpRequest *http.Request, body []byte, endpoint string, responses chan<- string) {
+	tr := &http.Transport{}
+	if skipTLSVerify {
+		tr = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 - letting the user decide if they want to skip TLS verification, for some in-cluster scenarios its a reasonable compromise
+		}
+	}
+	client := &http.Client{Transport: tr}
 	req, err := http.NewRequestWithContext(ctx, originalHttpRequest.Method, endpoint, bytes.NewBuffer(body))
 	if err != nil {
 		log.Errorf("Error creating request to %s: %v", endpoint, err)
@@ -117,7 +124,7 @@ func handlePushEvent(ctx context.Context, eventPayload *github.PushEvent, httpRe
 
 		// Start a goroutine for each endpoint
 		for _, endpoint := range endpoints {
-			go proxyRequest(ctx, httpRequest, payload, endpoint, responses)
+			go proxyRequest(ctx, config.WhProxtSkipTLSVerifyUpstream, httpRequest, payload, endpoint, responses)
 		}
 
 		// Wait for all goroutines to finish and collect the responses
