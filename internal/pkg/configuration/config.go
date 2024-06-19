@@ -42,6 +42,10 @@ type Config struct {
 	ToggleCommitStatus           map[string]string      `yaml:"toggleCommitStatus"`
 	WebhookEndpointRegexs        []WebhookEndpointRegex `yaml:"webhookEndpointRegexs"`
 	WhProxtSkipTLSVerifyUpstream bool                   `yaml:"whProxtSkipTLSVerifyUpstream"`
+	CommentArgocdDiffonPR        bool                   `yaml:"commentArgocdDiffonPR"`
+	AutoMergeNoDiffPRs           bool                   `yaml:"autoMergeNoDiffPRs"`
+	UseSHALabelForArgoDicovery   bool                   `yaml:"useSHALabelForArgoDicovery"`
+
 }
 
 func ParseConfigFromYaml(y string) (*Config, error) {

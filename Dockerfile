@@ -8,7 +8,6 @@ COPY . ./
 RUN make test
 
 FROM test as build
-# FROM golang:1.21.5 as build
 ARG GOPROXY
 ENV GOPATH=/go
 ENV PATH="$PATH:$GOPATH/bin"
