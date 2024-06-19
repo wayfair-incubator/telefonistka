@@ -21,6 +21,7 @@ type PromotionInstance struct {
 type PromotionInstanceMetaData struct {
 	SourcePath                     string
 	TargetPaths                    []string
+	TargetDescription              string
 	PerComponentSkippedTargetPaths map[string][]string // ComponentName is the key,
 	ComponentNames                 []string
 	AutoMerge                      bool
@@ -193,9 +194,13 @@ func GeneratePromotionPlan(ghPrClientDetails GhPrClientDetails, config *cfg.Conf
 					mapKey := configPromotionPath.SourcePath + ">" + strings.Join(ppr.TargetPaths, "|") // This key is used to aggregate the PR based on source and target combination
 					if entry, ok := promotions[mapKey]; !ok {
 						ghPrClientDetails.PrLogger.Debugf("Adding key %s", mapKey)
+						if ppr.TargetDescription == "" {
+							ppr.TargetDescription = strings.Join(ppr.TargetPaths, " ")
+						}
 						promotions[mapKey] = PromotionInstance{
 							Metadata: PromotionInstanceMetaData{
 								TargetPaths:                    ppr.TargetPaths,
+								TargetDescription:              ppr.TargetDescription,
 								SourcePath:                     componentToPromote.SourcePath,
 								ComponentNames:                 []string{componentToPromote.ComponentName},
 								PerComponentSkippedTargetPaths: map[string][]string{},
