@@ -110,7 +110,6 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 	return componentConfig, nil
 }
 
-
 // This function generates a list of "components" that where changed in the PR and are relevant for promotion)
 func generateListOfRelevantComponents(ghPrClientDetails GhPrClientDetails, config *cfg.Config) (relevantComponents map[relevantComponent]struct{}, err error) {
 	relevantComponents = make(map[relevantComponent]struct{})
@@ -124,16 +123,6 @@ func generateListOfRelevantComponents(ghPrClientDetails GhPrClientDetails, confi
 		prom.InstrumentGhCall(resp)
 		if err != nil {
 			ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nstatus code=%v", err, resp.Response.Status)
-			return promotions, err
-		}
-		prFiles = append(prFiles, perPagePrFiles...)
-		if resp.NextPage == 0 {
-			break
-		}
-		opts.Page = resp.NextPage
-	}
-
-
 			return nil, err
 		}
 		prFiles = append(prFiles, perPagePrFiles...)

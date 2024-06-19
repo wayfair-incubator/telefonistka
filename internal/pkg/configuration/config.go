@@ -45,7 +45,6 @@ type Config struct {
 	CommentArgocdDiffonPR        bool                   `yaml:"commentArgocdDiffonPR"`
 	AutoMergeNoDiffPRs           bool                   `yaml:"autoMergeNoDiffPRs"`
 	UseSHALabelForArgoDicovery   bool                   `yaml:"useSHALabelForArgoDicovery"`
-
 }
 
 func ParseConfigFromYaml(y string) (*Config, error) {
