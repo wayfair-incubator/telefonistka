@@ -12,6 +12,7 @@ VENDOR_DIR = vendor
 get-deps: $(VENDOR_DIR)
 
 $(VENDOR_DIR):
+	go generate $$(go list ./internal/pkg/mocks/...)
 	GO111MODULE=on go mod vendor
 
 .PHONY: build
@@ -24,5 +25,5 @@ clean:
 
 .PHONY: test
 test: $(VENDOR_DIR)
-	go test -v -timeout 30s .
+	go test -v -timeout 30s ./...
 

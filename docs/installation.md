@@ -91,6 +91,14 @@ Environment variables for the webhook process:
 
 `TEMPLATES_PATH` Telefonistka uses Go templates to format GitHub PR comments, the variable override the default templates path("templates/"), useful for environments where the container workdir is overridden(like GitHub Actions) or when custom templates are desired.
 
+`ARGOCD_SERVER_ADDR` Hostname and port of the ArgoCD API endpoint, like `argocd-server.argocd.svc.cluster.local:443`, default is `localhost:8080"`
+
+`ARGOCD_TOKEN` ArgoCD authentication token.
+
+`ARGOCD_PLAINTEXT` Allows disabeling TLS on ArgoCD API calls. (default: `false`)
+
+`ARGOCD_INSECURE` Allow disabeling server certificate validation. (default: `false`)
+
 Behavior of the bot is configured by YAML files **in the target repo**:
 
 ## Repo Configuration
@@ -115,6 +123,9 @@ Configuration keys:
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
 |`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
 |`whProxtSkipTLSVerifyUpstream`| This disables upstream TLS server certificate validation for the webhook proxy functionality. Default is `false`. |
+|`commentArgocdDiffonPR`| Uses ArgoCD API to calculate expected changes to k8s state and comment the resulting "diff" as comment in the PR. Requires ARGOCD_* environment variables, see below. |
+|`autoMergeNoDiffPRs`| if true, Telefonistka will **merge** promotion PRs that are not expected to change the target clusters. Requires `commentArgocdDiffonPR` and possibly `autoApprovePromotionPrs`(depending on repo branch protection rules)|
+|`useSHALabelForArgoDicovery`| The default method for discovering relevant ArgoCD applications (for a PR) relies on fetching all applications in the repo and checking the `argocd.argoproj.io/manifest-generate-paths` **annotation**, this might cause a performance issue on a repo with a large number of ArgoCD applications. The alternative is to add SHA1 of the application path as a  **label** and rely on ArgoCD server-side filtering, label name is `telefonistka.io/component-path-sha1`.|
 <!-- markdownlint-enable MD033 -->
 
 Example:
@@ -160,6 +171,8 @@ promotionPaths:
         - "clusters/prod/us-east4/c2"
 dryRunMode: true
 autoApprovePromotionPrs: true
+commentArgocdDiffonPR: true
+autoMergeNoDiffPRs: true
 toggleCommitStatus:
   override-terrafrom-pipeline: "github-action-terraform"
 ```
