@@ -36,7 +36,6 @@ type Config struct {
 	PromotionPaths []PromotionPath `yaml:"promotionPaths"`
 
 	// Generic configuration
-
 	PromtionPrLables             []string               `yaml:"promtionPRlables"`
 	DryRunMode                   bool                   `yaml:"dryRunMode"`
 	AutoApprovePromotionPrs      bool                   `yaml:"autoApprovePromotionPrs"`

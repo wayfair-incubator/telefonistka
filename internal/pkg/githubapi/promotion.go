@@ -117,12 +117,12 @@ func generateListOfRelevantComponents(ghPrClientDetails GhPrClientDetails, confi
 	// Get the list of files in the PR, with pagination
 	opts := &github.ListOptions{}
 	prFiles := []*github.CommitFile{}
+
 	for {
 		perPagePrFiles, resp, err := ghPrClientDetails.GhClientPair.v3Client.PullRequests.ListFiles(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrNumber, opts)
 		prom.InstrumentGhCall(resp)
 		if err != nil {
 			ghPrClientDetails.PrLogger.Errorf("could not get file list from GH API: err=%s\nstatus code=%v", err, resp.Response.Status)
-
 			return nil, err
 		}
 		prFiles = append(prFiles, perPagePrFiles...)
