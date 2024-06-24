@@ -71,7 +71,7 @@ func bumpVersionRegex(targetRepo string, targetFile string, regex string, replac
 	r := regexp.MustCompile(regex)
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 
-	initialFileContent, err, _ := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
+	initialFileContent, _, err := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to fetch file content:%s\n", err)
 		os.Exit(1)

@@ -8,12 +8,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/go-github/v62/github"
@@ -185,12 +188,36 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 	}
 }
 
-func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair], githubWebhookSecret []byte) {
+// ReciveEventFile this one is similar to ReciveWebhook but it's used for CLI triggering, i  simulates a webhook event to use the same code path as the webhook handler.
+func ReciveEventFile(eventType string, eventFilePath string, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair]) {
+	log.Infof("Event type: %s", eventType)
+	log.Infof("Proccesing file: %s", eventFilePath)
+
+	payload, err := os.ReadFile(eventFilePath)
+	if err != nil {
+		panic(err)
+	}
+	eventPayloadInterface, err := github.ParseWebHook(eventType, payload)
+	if err != nil {
+		log.Errorf("could not parse webhook: err=%s\n", err)
+		prom.InstrumentWebhookHit("parsing_failed")
+		return
+	}
+	r, _ := http.NewRequest("POST", "", nil) //nolint:noctx
+	r.Body = io.NopCloser(bytes.NewReader(payload))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("X-GitHub-Event", eventType)
+
+	handleEvent(eventPayloadInterface, mainGhClientCache, prApproverGhClientCache, r, payload, eventType)
+}
+
+// ReciveWebhook is the main entry point for the webhook handling it starts parases the webhook payload and start a thread to handle the event success/failure are dependant on the payload parsing only
+func ReciveWebhook(r *http.Request, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair], githubWebhookSecret []byte) error {
 	payload, err := github.ValidatePayload(r, githubWebhookSecret)
 	if err != nil {
 		log.Errorf("error reading request body: err=%s\n", err)
 		prom.InstrumentWebhookHit("validation_failed")
-		return
+		return err
 	}
 	eventType := github.WebHookType(r)
 
@@ -198,9 +225,19 @@ func HandleEvent(r *http.Request, ctx context.Context, mainGhClientCache *lru.Ca
 	if err != nil {
 		log.Errorf("could not parse webhook: err=%s\n", err)
 		prom.InstrumentWebhookHit("parsing_failed")
-		return
+		return err
 	}
 	prom.InstrumentWebhookHit("successful")
+
+	go handleEvent(eventPayloadInterface, mainGhClientCache, prApproverGhClientCache, r, payload, eventType)
+	return nil
+}
+
+func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair], r *http.Request, payload []byte, eventType string) {
+	// We don't use the request context as it might have a short deadline and we don't want to stop event handling based on that
+	// But we do want to stop the event handling after a certain point, so:
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
 	var mainGithubClientPair GhClientPair
 	var approverGithubClientPair GhClientPair
 
@@ -971,7 +1008,7 @@ func ApprovePr(approverClient *github.Client, ghPrClientDetails GhPrClientDetail
 }
 
 func GetInRepoConfig(ghPrClientDetails GhPrClientDetails, defaultBranch string) (*cfg.Config, error) {
-	inRepoConfigFileContentString, err, _ := GetFileContent(ghPrClientDetails, defaultBranch, "telefonistka.yaml")
+	inRepoConfigFileContentString, _, err := GetFileContent(ghPrClientDetails, defaultBranch, "telefonistka.yaml")
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Could not get in-repo configuration: err=%s\n", err)
 		return nil, err
@@ -983,18 +1020,23 @@ func GetInRepoConfig(ghPrClientDetails GhPrClientDetails, defaultBranch string) 
 	return c, err
 }
 
-func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath string) (string, error, int) {
+func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath string) (string, int, error) {
 	rGetContentOps := github.RepositoryContentGetOptions{Ref: branch}
 	fileContent, _, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.GetContents(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, filePath, &rGetContentOps)
-	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to get file:%s\n%v\n", err, resp)
-		return "", err, resp.StatusCode
+		if resp == nil {
+			return "", 0, err
+		}
+		prom.InstrumentGhCall(resp)
+		return "", resp.StatusCode, err
+	} else {
+		prom.InstrumentGhCall(resp)
 	}
 	fileContentString, err := fileContent.GetContent()
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to serlize file:%s\n", err)
-		return "", err, resp.StatusCode
+		return "", resp.StatusCode, err
 	}
-	return fileContentString, nil, resp.StatusCode
+	return fileContentString, resp.StatusCode, nil
 }

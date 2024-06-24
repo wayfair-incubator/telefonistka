@@ -74,7 +74,7 @@ func bumpVersionYaml(targetRepo string, targetFile string, address string, value
 
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 
-	initialFileContent, err, _ := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
+	initialFileContent, _, err := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Fail to fetch file content:%s\n", err)
 		os.Exit(1)

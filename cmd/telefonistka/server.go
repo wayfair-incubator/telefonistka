@@ -1,7 +1,6 @@
 package telefonistka
 
 import (
-	"context"
 	"net/http"
 	"os"
 	"time"
@@ -39,9 +38,13 @@ func init() { //nolint:gochecknoinits
 
 func handleWebhook(githubWebhookSecret []byte, mainGhClientCache *lru.Cache[string, githubapi.GhClientPair], prApproverGhClientCache *lru.Cache[string, githubapi.GhClientPair]) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		defer cancel()
-		githubapi.HandleEvent(r, ctx, mainGhClientCache, prApproverGhClientCache, githubWebhookSecret)
+		err := githubapi.ReciveWebhook(r, mainGhClientCache, prApproverGhClientCache, githubWebhookSecret)
+		if err != nil {
+			log.Errorf("error handling webhook: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	}
 }
 

@@ -51,7 +51,7 @@ type DiffResult struct {
 func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj *argoappv1.AppProject, resources *application.ManagedResourcesResponse, argoSettings *settings.Settings, diffOptions *DifferenceOption) (foundDiffs bool, diffElements []DiffElement, err error) {
 	liveObjs, err := cmdutil.LiveObjects(resources.Items)
 	if err != nil {
-		return false, nil, err
+		return false, nil, fmt.Errorf("Failed to get live objects: %v", err)
 	}
 
 	items := make([]objKeyLiveTarget, 0)
@@ -59,12 +59,18 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 	for _, mfst := range diffOptions.res.Manifests {
 		obj, err := argoappv1.UnmarshalToUnstructured(mfst)
 		if err != nil {
-			return false, nil, err
+			return false, nil, fmt.Errorf("Failed to unmarshal manifest: %v", err)
 		}
 		unstructureds = append(unstructureds, obj)
 	}
-	groupedObjs := groupObjsByKey(unstructureds, liveObjs, app.Spec.Destination.Namespace)
-	items = groupObjsForDiff(resources, groupedObjs, items, argoSettings, app.InstanceName(argoSettings.ControllerNamespace), app.Spec.Destination.Namespace)
+	groupedObjs, err := groupObjsByKey(unstructureds, liveObjs, app.Spec.Destination.Namespace)
+	if err != nil {
+		return false, nil, fmt.Errorf("Failed to group objects by key: %v", err)
+	}
+	items, err = groupObjsForDiff(resources, groupedObjs, items, argoSettings, app.InstanceName(argoSettings.ControllerNamespace), app.Spec.Destination.Namespace)
+	if err != nil {
+		return false, nil, fmt.Errorf("Failed to group objects for diff: %v", err)
+	}
 
 	for _, item := range items {
 		var diffElement DiffElement
@@ -85,11 +91,11 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 			WithNoCache().
 			Build()
 		if err != nil {
-			return false, nil, err
+			return false, nil, fmt.Errorf("Failed to build diff config: %v", err)
 		}
 		diffRes, err := argodiff.StateDiff(item.live, item.target, diffConfig)
 		if err != nil {
-			return false, nil, err
+			return false, nil, fmt.Errorf("Failed to diff objects: %v", err)
 		}
 
 		if diffRes.Modified || item.target == nil || item.live == nil {
@@ -105,7 +111,7 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 				live = item.live
 				err = json.Unmarshal(diffRes.PredictedLive, target)
 				if err != nil {
-					return false, nil, err
+					return false, nil, fmt.Errorf("Failed to unmarshal predicted live object: %v", err)
 				}
 			} else {
 				live = item.live
@@ -117,7 +123,7 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 
 			diffElement.Diff, err = diffLiveVsTargetObject(live, target)
 			if err != nil {
-				return false, nil, err
+				return false, nil, fmt.Errorf("Failed to diff live objects: %v", err)
 			}
 		}
 		diffElements = append(diffElements, diffElement)
@@ -151,7 +157,7 @@ func createArgoCdClient() (apiclient.Client, error) {
 
 	clientset, err := apiclient.NewClient(opts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error creating ArgoCD API client: %v", err)
 	}
 	return clientset, nil
 }

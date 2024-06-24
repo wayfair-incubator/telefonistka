@@ -51,6 +51,9 @@ func contains(s []string, str string) bool {
 }
 
 func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
+	if ghPrClientDetails.Ctx.Err() != nil {
+		return ghPrClientDetails.Ctx.Err()
+	}
 	diffOutputMap := make(map[string]string)
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)

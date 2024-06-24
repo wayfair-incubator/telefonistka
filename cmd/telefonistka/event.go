@@ -1,14 +1,9 @@
 package telefonistka
 
 import (
-	"bytes"
-	"context"
-	"io"
-	"net/http"
 	"os"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/githubapi"
 )
@@ -32,27 +27,9 @@ func init() { //nolint:gochecknoinits
 }
 
 func event(eventType string, eventFilePath string) {
-	ctx := context.Background()
-
-	log.Infof("Event type: %s", eventType)
-	log.Infof("Proccesing file: %s", eventFilePath)
-
-	payload, err := os.ReadFile(eventFilePath)
-	if err != nil {
-		panic(err)
-	}
-
-	// To use the same code path as for Webhook I'm creating an http request with the payload from the file.
-	// This might not be very smart.
-
-	h, _ := http.NewRequest("POST", "", nil) //nolint:noctx
-	h.Body = io.NopCloser(bytes.NewReader(payload))
-	h.Header.Set("Content-Type", "application/json")
-	h.Header.Set("X-GitHub-Event", eventType)
-
 	mainGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
-	githubapi.HandleEvent(h, ctx, mainGhClientCache, prApproverGhClientCache, nil)
+	githubapi.ReciveEventFile(eventFilePath, eventType, mainGhClientCache, prApproverGhClientCache)
 }
 
 func getEnv(key, fallback string) string {
