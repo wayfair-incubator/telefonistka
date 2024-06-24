@@ -20,7 +20,7 @@ require (
 	github.com/migueleliasweb/go-github-mock v0.0.22
 	github.com/mikefarah/yq/v4 v4.43.1
 	github.com/prometheus/client_golang v1.19.0
-	github.com/shurcooL/githubv4 v0.0.0-20240120211514-18a1ae0e79dc
+	github.com/shurcooL/githubv4 v0.0.0-20240429030203-be2daab69064
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
