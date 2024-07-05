@@ -1,0 +1,21 @@
+{
+  "target": {
+    "path": "deployment/telefonistka",
+    "namespace": "telefonistka"
+  },
+  "agent": {
+    "namespace": "mirrord"
+  },
+  "feature": {
+    "fs": {
+      "mode": "read",
+      "read_write": ".+\\.json" ,
+      "read_only": [ "^/etc/telefonistka-gh-app-creds/.*" ]
+    }
+  },
+  "operator": false,
+  "kubeconfig": "~/.kube/config",
+  "sip_binaries": "bash",
+  "telemetry": true
+}
+
