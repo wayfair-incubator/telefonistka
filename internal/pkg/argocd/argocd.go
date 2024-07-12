@@ -20,12 +20,17 @@ import (
 	argoappv1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argodiff "github.com/argoproj/argo-cd/v2/util/argo/diff"
 	"github.com/argoproj/argo-cd/v2/util/argo/normalizers"
-	argoio "github.com/argoproj/argo-cd/v2/util/io"
 	"github.com/argoproj/gitops-engine/pkg/sync/hook"
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+type argoCdClients struct {
+	app     application.ApplicationServiceClient
+	project projectpkg.ProjectServiceClient
+	setting settings.SettingsServiceClient
+}
 
 // DiffElement struct to store diff element details, this represents a single k8s object
 type DiffElement struct {
@@ -51,7 +56,7 @@ type DiffResult struct {
 func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj *argoappv1.AppProject, resources *application.ManagedResourcesResponse, argoSettings *settings.Settings, diffOptions *DifferenceOption) (foundDiffs bool, diffElements []DiffElement, err error) {
 	liveObjs, err := cmdutil.LiveObjects(resources.Items)
 	if err != nil {
-		return false, nil, fmt.Errorf("Failed to get live objects: %v", err)
+		return false, nil, fmt.Errorf("Failed to get live objects: %w", err)
 	}
 
 	items := make([]objKeyLiveTarget, 0)
@@ -59,17 +64,17 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 	for _, mfst := range diffOptions.res.Manifests {
 		obj, err := argoappv1.UnmarshalToUnstructured(mfst)
 		if err != nil {
-			return false, nil, fmt.Errorf("Failed to unmarshal manifest: %v", err)
+			return false, nil, fmt.Errorf("Failed to unmarshal manifest: %w", err)
 		}
 		unstructureds = append(unstructureds, obj)
 	}
 	groupedObjs, err := groupObjsByKey(unstructureds, liveObjs, app.Spec.Destination.Namespace)
 	if err != nil {
-		return false, nil, fmt.Errorf("Failed to group objects by key: %v", err)
+		return false, nil, fmt.Errorf("Failed to group objects by key: %w", err)
 	}
 	items, err = groupObjsForDiff(resources, groupedObjs, items, argoSettings, app.InstanceName(argoSettings.ControllerNamespace), app.Spec.Destination.Namespace)
 	if err != nil {
-		return false, nil, fmt.Errorf("Failed to group objects for diff: %v", err)
+		return false, nil, fmt.Errorf("Failed to group objects for diff: %w", err)
 	}
 
 	for _, item := range items {
@@ -91,11 +96,11 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 			WithNoCache().
 			Build()
 		if err != nil {
-			return false, nil, fmt.Errorf("Failed to build diff config: %v", err)
+			return false, nil, fmt.Errorf("Failed to build diff config: %w", err)
 		}
 		diffRes, err := argodiff.StateDiff(item.live, item.target, diffConfig)
 		if err != nil {
-			return false, nil, fmt.Errorf("Failed to diff objects: %v", err)
+			return false, nil, fmt.Errorf("Failed to diff objects: %w", err)
 		}
 
 		if diffRes.Modified || item.target == nil || item.live == nil {
@@ -111,7 +116,7 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 				live = item.live
 				err = json.Unmarshal(diffRes.PredictedLive, target)
 				if err != nil {
-					return false, nil, fmt.Errorf("Failed to unmarshal predicted live object: %v", err)
+					return false, nil, fmt.Errorf("Failed to unmarshal predicted live object: %w", err)
 				}
 			} else {
 				live = item.live
@@ -123,7 +128,7 @@ func generateArgocdAppDiff(ctx context.Context, app *argoappv1.Application, proj
 
 			diffElement.Diff, err = diffLiveVsTargetObject(live, target)
 			if err != nil {
-				return false, nil, fmt.Errorf("Failed to diff live objects: %v", err)
+				return false, nil, fmt.Errorf("Failed to diff live objects: %w", err)
 			}
 		}
 		diffElements = append(diffElements, diffElement)
@@ -144,7 +149,7 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func createArgoCdClient() (apiclient.Client, error) {
+func createArgoCdClients() (ac argoCdClients, err error) {
 	plaintext, _ := strconv.ParseBool(getEnv("ARGOCD_PLAINTEXT", "false"))
 	insecure, _ := strconv.ParseBool(getEnv("ARGOCD_INSECURE", "false"))
 
@@ -155,11 +160,26 @@ func createArgoCdClient() (apiclient.Client, error) {
 		Insecure:   insecure,
 	}
 
-	clientset, err := apiclient.NewClient(opts)
+	client, err := apiclient.NewClient(opts)
 	if err != nil {
-		return nil, fmt.Errorf("Error creating ArgoCD API client: %v", err)
+		return ac, fmt.Errorf("Error creating ArgoCD API client: %w", err)
 	}
-	return clientset, nil
+
+	_, ac.app, err = client.NewApplicationClient()
+	if err != nil {
+		return ac, fmt.Errorf("Error creating ArgoCD app client: %w", err)
+	}
+
+	_, ac.project, err = client.NewProjectClient()
+	if err != nil {
+		return ac, fmt.Errorf("Error creating ArgoCD project client: %w", err)
+	}
+
+	_, ac.setting, err = client.NewSettingsClient()
+	if err != nil {
+		return ac, fmt.Errorf("Error creating ArgoCD settings client: %w", err)
+	}
+	return
 }
 
 // findArgocdAppBySHA1Label finds an ArgoCD application by the SHA1 label of the component path it's supposed to avoid performance issues with the "manifest-generate-paths" annotation method which requires pulling all ArgoCD applications(!) on every PR event.
@@ -178,7 +198,7 @@ func findArgocdAppBySHA1Label(ctx context.Context, componentPath string, repo st
 	}
 	foundApps, err := appClient.List(ctx, &appLabelQuery)
 	if err != nil {
-		return nil, fmt.Errorf("Error listing ArgoCD applications: %v", err)
+		return nil, fmt.Errorf("Error listing ArgoCD applications: %w", err)
 	}
 	if len(foundApps.Items) == 0 {
 		return nil, fmt.Errorf("No ArgoCD application found for component path sha1 %s(repo %s), used this label selector: %s", componentPathSha1, repo, labelSelector)
@@ -231,6 +251,54 @@ func findArgocdAppByManifestPathAnnotation(ctx context.Context, componentPath st
 	return nil, fmt.Errorf("No ArgoCD application found with manifest-generate-paths annotation that matches %s(looked at repo %s, checked %v apps)	", componentPath, repo, len(allRepoApps.Items))
 }
 
+func SetArgoCDAppRevision(ctx context.Context, componentPath string, revision string, repo string, useSHALabelForArgoDicovery bool) error {
+	var foundApp *argoappv1.Application
+	var err error
+	ac, err := createArgoCdClients()
+	if err != nil {
+		return fmt.Errorf("Error creating ArgoCD clients: %w", err)
+	}
+	if useSHALabelForArgoDicovery {
+		foundApp, err = findArgocdAppBySHA1Label(ctx, componentPath, repo, ac.app)
+	} else {
+		foundApp, err = findArgocdAppByManifestPathAnnotation(ctx, componentPath, repo, ac.app)
+	}
+	if err != nil {
+		return fmt.Errorf("error finding ArgoCD application for component path %s: %w", componentPath, err)
+	}
+	if foundApp.Spec.Source.TargetRevision == revision {
+		log.Infof("App %s already has revision %s", foundApp.Name, revision)
+		return nil
+	}
+
+	patchObject := struct {
+		Spec struct {
+			Source struct {
+				TargetRevision string `json:"targetRevision"`
+			} `json:"source"`
+		} `json:"spec"`
+	}{}
+	patchObject.Spec.Source.TargetRevision = revision
+	patchJson, _ := json.Marshal(patchObject)
+	patch := string(patchJson)
+	log.Debugf("Patching app %s/%s with: %s", foundApp.Namespace, foundApp.Name, patch)
+
+	patchType := "merge"
+	_, err = ac.app.Patch(ctx, &application.ApplicationPatchRequest{
+		Name:         &foundApp.Name,
+		AppNamespace: &foundApp.Namespace,
+		PatchType:    &patchType,
+		Patch:        &patch,
+	})
+	if err != nil {
+		return fmt.Errorf("revision patching failed: %w", err)
+	} else {
+		log.Infof("ArgoCD App %s revision set to %s", foundApp.Name, revision)
+	}
+
+	return err
+}
+
 func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranch string, repo string, appClient application.ApplicationServiceClient, projClient projectpkg.ProjectServiceClient, argoSettings *settings.Settings, useSHALabelForArgoDicovery bool) (componentDiffResult DiffResult) {
 	componentDiffResult.ComponentPath = componentPath
 
@@ -266,6 +334,12 @@ func generateDiffOfAComponent(ctx context.Context, componentPath string, prBranc
 	log.Debugf("Got ArgoCD app %s", app.Name)
 	componentDiffResult.ArgoCdAppName = app.Name
 	componentDiffResult.ArgoCdAppURL = fmt.Sprintf("%s/applications/%s", argoSettings.URL, app.Name)
+
+	if app.Spec.Source.TargetRevision == prBranch {
+		componentDiffResult.DiffError = fmt.Errorf("App %s already has revision %s as Source Target Revision, skipping diff calculation", app.Name, prBranch)
+		return componentDiffResult
+	}
+
 	resources, err := appClient.ManagedResources(ctx, &application.ResourcesQuery{ApplicationName: &app.Name, AppNamespace: &app.Namespace})
 	if err != nil {
 		componentDiffResult.DiffError = err
@@ -313,33 +387,13 @@ func GenerateDiffOfChangedComponents(ctx context.Context, componentPathList []st
 	hasComponentDiff = false
 	hasComponentDiffErrors = false
 	// env var should be centralized
-	client, err := createArgoCdClient()
+	ac, err := createArgoCdClients()
 	if err != nil {
-		log.Errorf("Error creating ArgoCD client: %v", err)
+		log.Errorf("Error creating ArgoCD clients: %v", err)
 		return false, true, nil, err
 	}
 
-	conn, appClient, err := client.NewApplicationClient()
-	if err != nil {
-		log.Errorf("Error creating ArgoCD app client: %v", err)
-		return false, true, nil, err
-	}
-	defer argoio.Close(conn)
-
-	conn, projClient, err := client.NewProjectClient()
-	if err != nil {
-		log.Errorf("Error creating ArgoCD project client: %v", err)
-		return false, true, nil, err
-	}
-	defer argoio.Close(conn)
-
-	conn, settingClient, err := client.NewSettingsClient()
-	if err != nil {
-		log.Errorf("Error creating ArgoCD settings client: %v", err)
-		return false, true, nil, err
-	}
-	defer argoio.Close(conn)
-	argoSettings, err := settingClient.Get(ctx, &settings.SettingsQuery{})
+	argoSettings, err := ac.setting.Get(ctx, &settings.SettingsQuery{})
 	if err != nil {
 		log.Errorf("Error getting ArgoCD settings: %v", err)
 		return false, true, nil, err
@@ -347,7 +401,7 @@ func GenerateDiffOfChangedComponents(ctx context.Context, componentPathList []st
 
 	log.Debugf("Checking ArgoCD diff for components: %v", componentPathList)
 	for _, componentPath := range componentPathList {
-		currentDiffResult := generateDiffOfAComponent(ctx, componentPath, prBranch, repo, appClient, projClient, argoSettings, useSHALabelForArgoDicovery)
+		currentDiffResult := generateDiffOfAComponent(ctx, componentPath, prBranch, repo, ac.app, ac.project, argoSettings, useSHALabelForArgoDicovery)
 		if currentDiffResult.DiffError != nil {
 			log.Errorf("Error generating diff for component %s: %v", componentPath, currentDiffResult.DiffError)
 			hasComponentDiffErrors = true

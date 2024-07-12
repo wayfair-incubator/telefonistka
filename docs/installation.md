@@ -126,6 +126,7 @@ Configuration keys:
 |`commentArgocdDiffonPR`| Uses ArgoCD API to calculate expected changes to k8s state and comment the resulting "diff" as comment in the PR. Requires ARGOCD_* environment variables, see below. |
 |`autoMergeNoDiffPRs`| if true, Telefonistka will **merge** promotion PRs that are not expected to change the target clusters. Requires `commentArgocdDiffonPR` and possibly `autoApprovePromotionPrs`(depending on repo branch protection rules)|
 |`useSHALabelForArgoDicovery`| The default method for discovering relevant ArgoCD applications (for a PR) relies on fetching all applications in the repo and checking the `argocd.argoproj.io/manifest-generate-paths` **annotation**, this might cause a performance issue on a repo with a large number of ArgoCD applications. The alternative is to add SHA1 of the application path as a  **label** and rely on ArgoCD server-side filtering, label name is `telefonistka.io/component-path-sha1`.|
+|`allowSyncArgoCDAppfromBranchPathRegex`| This controls which component(=ArgoCD apps) are allowed to be "applied" from a PR branch, by setting the ArgoCD application `Target Revision` to PR branch.|
 <!-- markdownlint-enable MD033 -->
 
 Example:
@@ -173,6 +174,7 @@ dryRunMode: true
 autoApprovePromotionPrs: true
 commentArgocdDiffonPR: true
 autoMergeNoDiffPRs: true
+allowSyncArgoCDAppfromBranchPathRegex: '^workspace/.*$'
 toggleCommitStatus:
   override-terrafrom-pipeline: "github-action-terraform"
 ```
