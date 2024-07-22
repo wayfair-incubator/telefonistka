@@ -102,7 +102,7 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 		return nil, err
 	} else if resp.StatusCode == 404 {
 		ghPrClientDetails.PrLogger.Debugf("No in-component config in %s", componentPath)
-		return nil, nil
+		return &cfg.ComponentConfig{}, nil
 	}
 	componentConfigFileContentString, _ := componentConfigFileContent.GetContent()
 	err = yaml.Unmarshal([]byte(componentConfigFileContentString), componentConfig)

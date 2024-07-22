@@ -184,12 +184,22 @@ toggleCommitStatus:
 This optional in-component configuration file allows overriding the general promotion configuration for a specific component.
 File location is `COMPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:
 `workspace/reloader/telefonistka.yaml` or `env/prod/us-central1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`
-it includes only two optional configuration keys, `promotionTargetBlockList` and `promotionTargetAllowList`.
-Both are matched against the target component path using Golang regex engine.
+it includes these  optional configuration keys: `promotionTargetBlockList`,  `promotionTargetAllowList` and `disableArgoCDDiff`
+`promotionTargetBlockList` and `promotionTargetAllowList`  are matched against the target component path using Golang regex engine.
 
 If a target path matches an entry in `promotionTargetBlockList` it will not be promoted(regardless of `promotionTargetAllowList`).
 
 If  `promotionTargetAllowList` exist(non empty), only target paths that matches it will be promoted to(but the previous statement about `promotionTargetBlockList` still applies).
+
+`disableArgoCDDiff` can be used to ensure no sensitive information **stored outside `kind:Secret` objects** is persisted to PR comments, this can happen if secrets are injected as part of the ArgoCD manifest templating stage and are stored outside `kind:Secret` objects and/or referenced by hashing function in annotations to trigger restarts. And while both use cases can (and should!) be avoided we choose to provide a workaround to prevent this issues from blocking Telefonistka implementation.
+
+ArgoCD API redact all `kind:Secret` object content automatically so under "normal" usage this is not an issue.
+
+Telefonistka will still display changed objects, just without the content:
+
+![image](https://github.com/user-attachments/assets/f8ebc390-6051-4640-982e-6b768975dcfc)
+
+Example:
 
 ```yaml
 promotionTargetBlockList:
@@ -198,6 +208,7 @@ promotionTargetBlockList:
 promotionTargetAllowList:
   - env/prod/.*
   - env/(dev|lab)/.*
+disableArgoCDDiff: true
 ```
 
 ## GitHub API Limit

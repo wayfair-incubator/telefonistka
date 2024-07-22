@@ -121,7 +121,24 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 				ghPrClientDetails.PrLogger.Errorf("Failed to get list of changed components: err=%s\n", err)
 			}
 
-			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentPathList, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.UseSHALabelForArgoDicovery)
+			// Building a map component's path and a boolean value that indicates if we should diff it not.
+			// I'm avoiding doing this in the ArgoCD package to avoid circular dependencies and keep package scope clean
+			componentsToDiff := map[string]bool{}
+			for _, componentPath := range componentPathList {
+				c, err := getComponentConfig(ghPrClientDetails, componentPath, ghPrClientDetails.Ref)
+				if err != nil {
+					prHandleError = fmt.Errorf("Failed to get component config(%s):  err=%s\n", componentPath, err)
+					ghPrClientDetails.PrLogger.Error(prHandleError)
+				} else {
+					if c.DisableArgoCDDiff {
+						componentsToDiff[componentPath] = false
+						ghPrClientDetails.PrLogger.Debugf("ArgoCD diff disabled for %s\n", componentPath)
+					} else {
+						componentsToDiff[componentPath] = true
+					}
+				}
+			}
+			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.UseSHALabelForArgoDicovery)
 			if err != nil {
 				prHandleError = err
 				ghPrClientDetails.PrLogger.Errorf("Failed to get ArgoCD diff information: err=%s\n", err)
@@ -304,7 +321,6 @@ func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache
 			PrSHA:        *eventPayload.PullRequest.Head.SHA,
 		}
 
-		log.Debugf("=== Ref is %s\n", ghPrClientDetails.Ref)
 		HandlePREvent(eventPayload, ghPrClientDetails, mainGithubClientPair, approverGithubClientPair, ctx)
 
 	case *github.IssueCommentEvent:

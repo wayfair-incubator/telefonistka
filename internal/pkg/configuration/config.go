@@ -12,6 +12,7 @@ type WebhookEndpointRegex struct {
 type ComponentConfig struct {
 	PromotionTargetAllowList []string `yaml:"promotionTargetAllowList"`
 	PromotionTargetBlockList []string `yaml:"promotionTargetBlockList"`
+	DisableArgoCDDiff        bool     `yaml:"disableArgoCDDiff"`
 }
 
 type Condition struct {
