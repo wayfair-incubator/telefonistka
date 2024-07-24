@@ -114,7 +114,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 			prHandleError = err
 			ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
 		}
-		if config.CommentArgocdDiffonPR {
+		if config.Argocd.CommentDiffonPR {
 			componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
 			if err != nil {
 				prHandleError = err
@@ -138,7 +138,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 					}
 				}
 			}
-			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.UseSHALabelForArgoDicovery)
+			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery, config.Argocd.CreateTempAppObjectFroNewApps)
 			if err != nil {
 				prHandleError = err
 				ghPrClientDetails.PrLogger.Errorf("Failed to get ArgoCD diff information: err=%s\n", err)
@@ -155,7 +155,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 					}
 					// If the PR is a promotion PR and the diff is empty, we can auto-merge it
 					// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
-					if DoesPrHasLabel(*eventPayload, "promotion") && config.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
+					if DoesPrHasLabel(*eventPayload, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
 						ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
 						err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
 						if err != nil {
@@ -177,7 +177,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 				}
 
 				for _, componentPath := range componentPathList {
-					if isSyncFromBranchAllowedForThisPath(config.AllowSyncArgoCDAppfromBranchPathRegex, componentPath) {
+					if isSyncFromBranchAllowedForThisPath(config.Argocd.AllowSyncfromBranchPathRegex, componentPath) {
 						diffCommentData.HasSyncableComponens = true
 						break
 					}
@@ -403,7 +403,7 @@ func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 		checkboxWaschecked, checkboxIsChecked := analyzeCommentUpdateCheckBox(*ce.Comment.Body, *ce.Changes.Body.From, checkboxIdentifier)
 		if !checkboxWaschecked && checkboxIsChecked {
 			ghPrClientDetails.PrLogger.Infof("Sync Checkbox was checked")
-			if config.AllowSyncArgoCDAppfromBranchPathRegex != "" {
+			if config.Argocd.AllowSyncfromBranchPathRegex != "" {
 				ghPrClientDetails.getPrMetadata(ce.Issue.GetBody())
 				componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
 				if err != nil {
@@ -411,8 +411,8 @@ func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 				}
 
 				for _, componentPath := range componentPathList {
-					if isSyncFromBranchAllowedForThisPath(config.AllowSyncArgoCDAppfromBranchPathRegex, componentPath) {
-						err := argocd.SetArgoCDAppRevision(ghPrClientDetails.Ctx, componentPath, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.UseSHALabelForArgoDicovery)
+					if isSyncFromBranchAllowedForThisPath(config.Argocd.AllowSyncfromBranchPathRegex, componentPath) {
+						err := argocd.SetArgoCDAppRevision(ghPrClientDetails.Ctx, componentPath, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery)
 						if err != nil {
 							ghPrClientDetails.PrLogger.Errorf("Failed to sync ArgoCD app from branch: err=%s\n", err)
 						}
@@ -604,15 +604,15 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 		commentPlanInPR(ghPrClientDetails, promotions)
 	}
 
-	if config.AllowSyncArgoCDAppfromBranchPathRegex != "" {
+	if config.Argocd.AllowSyncfromBranchPathRegex != "" {
 		componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
 		if err != nil {
 			ghPrClientDetails.PrLogger.Errorf("Failed to get list of changed components for setting ArgoCD app targetRef to HEAD: err=%s\n", err)
 		}
 		for _, componentPath := range componentPathList {
-			if isSyncFromBranchAllowedForThisPath(config.AllowSyncArgoCDAppfromBranchPathRegex, componentPath) {
+			if isSyncFromBranchAllowedForThisPath(config.Argocd.AllowSyncfromBranchPathRegex, componentPath) {
 				ghPrClientDetails.PrLogger.Infof("Ensuring ArgoCD app %s is set to HEAD\n", componentPath)
-				err := argocd.SetArgoCDAppRevision(ghPrClientDetails.Ctx, componentPath, "HEAD", ghPrClientDetails.RepoURL, config.UseSHALabelForArgoDicovery)
+				err := argocd.SetArgoCDAppRevision(ghPrClientDetails.Ctx, componentPath, "HEAD", ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery)
 				if err != nil {
 					ghPrClientDetails.PrLogger.Errorf("Failed to set ArgoCD app @  %s, to HEAD: err=%s\n", componentPath, err)
 				}
