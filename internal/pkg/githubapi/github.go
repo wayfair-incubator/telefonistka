@@ -28,6 +28,8 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+const githubCommentMaxSize = 65536
+
 type promotionInstanceMetaData struct {
 	SourcePath  string   `json:"sourcePath"`
 	TargetPaths []string `json:"targetPaths"`
@@ -186,12 +188,20 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 				err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffCommentData)
 				if err != nil {
 					prHandleError = err
-					log.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+					ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+				} else if len(templateOutput) > githubCommentMaxSize {
+					ghPrClientDetails.PrLogger.Warnf("Diff comment is too large (%d bytes), using concise template", len(templateOutput))
+					err, templateOutput = executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiffConcise", "argoCD-diff-pr-comment-concise.gotmpl", diffCommentData)
+					if err != nil {
+						prHandleError = err
+						ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+					}
 				}
+
 				err = commentPR(ghPrClientDetails, templateOutput)
 				if err != nil {
 					prHandleError = err
-					log.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
+					ghPrClientDetails.PrLogger.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
 				}
 			} else {
 				ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")

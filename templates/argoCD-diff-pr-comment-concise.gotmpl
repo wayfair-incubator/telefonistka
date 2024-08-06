@@ -1,0 +1,47 @@
+{{define "argoCdDiffConcise"}}
+Diff of ArgoCD applications(⚠️ concise view, full diff didn't fit GH comment):
+{{ range $appDiffResult := .DiffOfChangedComponents }}
+
+
+{{if $appDiffResult.DiffError }}
+⚠️ ⚠️ **Error getting diff from ArgoCD** (`{{ $appDiffResult.ComponentPath }}`) ⚠️ ⚠️ 
+``` 
+{{ $appDiffResult.DiffError }}
+
+```
+
+{{- else }}
+<img src="https://argo-cd.readthedocs.io/en/stable/assets/favicon.png" width="20"/> **[{{ $appDiffResult.ArgoCdAppName }}]({{ $appDiffResult.ArgoCdAppURL }})** @ `{{ $appDiffResult.ComponentPath }}`
+{{if $appDiffResult.HasDiff }}
+
+<details><summary>ArgoCD list of changed objects(Click to expand):</summary>
+
+{{ range $objectDiff := $appDiffResult.DiffElements }}
+{{-  if $objectDiff.Diff}}
+`{{ $objectDiff.ObjectNamespace }}/{{ $objectDiff.ObjectKind}}/{{ $objectDiff.ObjectName }}`
+{{- end}}
+{{- end }}
+
+</details>
+{{- else }}
+No diff 🤷
+{{- end}}
+{{if $appDiffResult.AppWasTemporarilyCreated }}
+⚠️ ⚠️ ⚠️
+This PR appears to create this new application, Telefonistka has **temporarly** created an ArgoCD app object for it just to render its manifests.
+It will not be present in ArgoCD UI for more than a few seconds and it can not be synced from the PR branch
+⚠️ ⚠️ ⚠️
+{{- end}}
+
+{{- end }}
+
+{{- end }}
+
+{{- if .HasSyncableComponens }}
+
+- [ ] <!-- telefonistka-argocd-branch-sync --> Set ArgoCD apps Target Revision to `{{ .BranchName }}`  
+
+{{ end}}
+
+
+{{- end }}
