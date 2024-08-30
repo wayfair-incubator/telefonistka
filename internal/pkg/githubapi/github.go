@@ -30,6 +30,13 @@ import (
 
 const githubCommentMaxSize = 65536
 
+type diffCommentData struct {
+	DiffOfChangedComponents []argocd.DiffResult
+	HasSyncableComponens    bool
+	BranchName              string
+	Header                  string
+}
+
 type promotionInstanceMetaData struct {
 	SourcePath  string   `json:"sourcePath"`
 	TargetPaths []string `json:"targetPaths"`
@@ -169,11 +176,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 			}
 
 			if len(diffOfChangedComponents) > 0 {
-				diffCommentData := struct {
-					DiffOfChangedComponents []argocd.DiffResult
-					HasSyncableComponens    bool
-					BranchName              string
-				}{
+				diffCommentData := diffCommentData{
 					DiffOfChangedComponents: diffOfChangedComponents,
 					BranchName:              ghPrClientDetails.Ref,
 				}
@@ -184,25 +187,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 						break
 					}
 				}
-
-				err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffCommentData)
-				if err != nil {
-					prHandleError = err
-					ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
-				} else if len(templateOutput) > githubCommentMaxSize {
-					ghPrClientDetails.PrLogger.Warnf("Diff comment is too large (%d bytes), using concise template", len(templateOutput))
-					err, templateOutput = executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiffConcise", "argoCD-diff-pr-comment-concise.gotmpl", diffCommentData)
-					if err != nil {
-						prHandleError = err
-						ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
-					}
-				}
-
-				err = commentPR(ghPrClientDetails, templateOutput)
-				if err != nil {
-					prHandleError = err
-					ghPrClientDetails.PrLogger.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
-				}
+				commentArgoCDdiff(ghPrClientDetails, diffCommentData)
 			} else {
 				ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")
 			}
@@ -228,6 +213,59 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 			SetCommitStatus(ghPrClientDetails, "error")
 		}
 	}
+}
+
+func commentArgoCDdiff(ghPrClientDetails GhPrClientDetails, diffCommentData diffCommentData) (err error) {
+
+	err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffCommentData)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+		return err
+	}
+
+	// Happy path, the diff comment is small enough to be posted in one comment
+	if len(templateOutput) < githubCommentMaxSize {
+		err = commentPR(ghPrClientDetails, templateOutput)
+		return err
+	}
+
+	// If the diff comment is too large, we'll split it into multiple comments, one per component
+	ghPrClientDetails.PrLogger.Warnf("Diff comment is too large (%d bytes), spiting to one comment per cluster", len(templateOutput))
+	totalComponents := len(diffCommentData.DiffOfChangedComponents)
+	for i, singleComponentDiff := range diffCommentData.DiffOfChangedComponents {
+		// We take the diffCommentData and replace the DiffOfChangedComponents with a single component diff
+		componentTemplateData := diffCommentData
+		componentTemplateData.DiffOfChangedComponents = []argocd.DiffResult{singleComponentDiff}
+		// We also update the header to reflect the current component.
+		componentTemplateData.Header = fmt.Sprintf("Component %d/%d: %s(Splited for comment size)", i+1, totalComponents, singleComponentDiff.ComponentPath)
+		err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", componentTemplateData)
+		if err != nil {
+			ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+			return err
+		}
+		// Even per component comments can be too large, in that case we'll just use the concise template
+		// Somewhat Happy path, the per-component diff comment is small enough to be posted in one comment
+		if len(templateOutput) < githubCommentMaxSize {
+			err = commentPR(ghPrClientDetails, templateOutput)
+			if err != nil {
+				return err
+			}
+		}
+
+		// now we don't have much choice, this is the saddest path, we'll use the concise template
+		err, templateOutput = executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiffConcise", "argoCD-diff-pr-comment-concise.gotmpl", componentTemplateData)
+		if err != nil {
+			ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
+			return err
+		}
+		err = commentPR(ghPrClientDetails, templateOutput)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
 }
 
 // ReciveEventFile this one is similar to ReciveWebhook but it's used for CLI triggering, i  simulates a webhook event to use the same code path as the webhook handler.

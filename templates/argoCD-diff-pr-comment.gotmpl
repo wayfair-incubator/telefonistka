@@ -1,4 +1,7 @@
 {{define "argoCdDiff"}}
+{{ if .Header }}
+{{ .Header }}
+{{- end}}
 Diff of ArgoCD applications:
 {{ range $appDiffResult := .DiffOfChangedComponents }}
 
