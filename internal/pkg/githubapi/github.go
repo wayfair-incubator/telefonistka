@@ -187,7 +187,11 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 						break
 					}
 				}
-				commentArgoCDdiff(ghPrClientDetails, diffCommentData)
+				err = commentArgoCDdiff(ghPrClientDetails, diffCommentData)
+				if err != nil {
+					prHandleError = err
+					ghPrClientDetails.PrLogger.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
+				}
 			} else {
 				ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")
 			}
@@ -216,7 +220,6 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 }
 
 func commentArgoCDdiff(ghPrClientDetails GhPrClientDetails, diffCommentData diffCommentData) (err error) {
-
 	err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffCommentData)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
@@ -263,7 +266,6 @@ func commentArgoCDdiff(ghPrClientDetails GhPrClientDetails, diffCommentData diff
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return nil
