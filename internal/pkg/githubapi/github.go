@@ -250,6 +250,7 @@ func commentArgoCDdiff(ghPrClientDetails GhPrClientDetails, diffCommentData diff
 			if err != nil {
 				return err
 			}
+			continue
 		}
 
 		// now we don't have much choice, this is the saddest path, we'll use the concise template
