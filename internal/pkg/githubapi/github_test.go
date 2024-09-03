@@ -3,6 +3,8 @@ package githubapi
 import (
 	"bytes"
 	"testing"
+
+	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
 )
 
 func TestGenerateSafePromotionBranchName(t *testing.T) {
@@ -153,6 +155,41 @@ func TestIsSyncFromBranchAllowedForThisPath(t *testing.T) {
 			result := isSyncFromBranchAllowedForThisPath(tc.allowedPathRegex, tc.path)
 			if result != tc.expectedResult {
 				t.Errorf("%s: Expected result to be %v, got %v", name, tc.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestGenerateArgoCdDiffComments(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		diffCommentData  DiffCommentData
+		expectedComments []string
+		maxCommentLength int
+	}{
+		"Multiple diff Single comment": {
+			diffCommentData: DiffCommentData{
+				DiffOfChangedComponents: []argocd.DiffResult{},
+				HasSyncableComponens:    true,
+				BranchName:              "fooBar",
+				Header:                  "some Text",
+			},
+			expectedComments: []string{
+				"foo",
+			},
+		},
+		"Multiple diff Multiple comments": {},
+	}
+
+	for name, tc := range tests {
+		tc := tc // capture range variable
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result, _ := generateArgoCdDiffComments(tc.diffCommentData, tc.maxCommentLength)
+			if len(result) != len(tc.expectedComments) {
+				t.Errorf("%s: Expected result to be %v, got %v", name, tc.expectedComments, result)
 			}
 		})
 	}

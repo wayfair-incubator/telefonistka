@@ -30,7 +30,7 @@ import (
 
 const githubCommentMaxSize = 65536
 
-type diffCommentData struct {
+type DiffCommentData struct {
 	DiffOfChangedComponents []argocd.DiffResult
 	HasSyncableComponens    bool
 	BranchName              string
@@ -176,7 +176,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 			}
 
 			if len(diffOfChangedComponents) > 0 {
-				diffCommentData := diffCommentData{
+				diffCommentData := DiffCommentData{
 					DiffOfChangedComponents: diffOfChangedComponents,
 					BranchName:              ghPrClientDetails.Ref,
 				}
@@ -187,10 +187,17 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 						break
 					}
 				}
-				err = commentArgoCDdiff(ghPrClientDetails, diffCommentData)
+				comments, err := generateArgoCdDiffComments(diffCommentData, githubCommentMaxSize)
 				if err != nil {
 					prHandleError = err
 					ghPrClientDetails.PrLogger.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
+				}
+				for _, comment := range comments {
+					err = commentPR(ghPrClientDetails, comment)
+					if err != nil {
+						prHandleError = err
+						ghPrClientDetails.PrLogger.Errorf("Failed to comment on PR: err=%s\n", err)
+					}
 				}
 			} else {
 				ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")
@@ -219,21 +226,19 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 	}
 }
 
-func commentArgoCDdiff(ghPrClientDetails GhPrClientDetails, diffCommentData diffCommentData) (err error) {
-	err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffCommentData)
+func generateArgoCdDiffComments(diffCommentData DiffCommentData, githubCommentMaxSize int) (comments []string, err error) {
+	err, templateOutput := executeTemplate("argoCdDiff", "argoCD-diff-pr-comment.gotmpl", diffCommentData)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
-		return err
+		return comments, fmt.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
 	}
 
 	// Happy path, the diff comment is small enough to be posted in one comment
 	if len(templateOutput) < githubCommentMaxSize {
-		err = commentPR(ghPrClientDetails, templateOutput)
-		return err
+		comments = append(comments, templateOutput)
+		return comments, err
 	}
 
 	// If the diff comment is too large, we'll split it into multiple comments, one per component
-	ghPrClientDetails.PrLogger.Warnf("Diff comment is too large (%d bytes), spiting to one comment per cluster", len(templateOutput))
 	totalComponents := len(diffCommentData.DiffOfChangedComponents)
 	for i, singleComponentDiff := range diffCommentData.DiffOfChangedComponents {
 		// We take the diffCommentData and replace the DiffOfChangedComponents with a single component diff
@@ -241,34 +246,32 @@ func commentArgoCDdiff(ghPrClientDetails GhPrClientDetails, diffCommentData diff
 		componentTemplateData.DiffOfChangedComponents = []argocd.DiffResult{singleComponentDiff}
 		// We also update the header to reflect the current component.
 		componentTemplateData.Header = fmt.Sprintf("Component %d/%d: %s(Splited for comment size)", i+1, totalComponents, singleComponentDiff.ComponentPath)
-		err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiff", "argoCD-diff-pr-comment.gotmpl", componentTemplateData)
+		err, templateOutput := executeTemplate("argoCdDiff", "argoCD-diff-pr-comment.gotmpl", componentTemplateData)
 		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
-			return err
+			return comments, fmt.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
 		}
 		// Even per component comments can be too large, in that case we'll just use the concise template
 		// Somewhat Happy path, the per-component diff comment is small enough to be posted in one comment
 		if len(templateOutput) < githubCommentMaxSize {
-			err = commentPR(ghPrClientDetails, templateOutput)
+			comments = append(comments, templateOutput)
 			if err != nil {
-				return err
+				return comments, err
 			}
 			continue
 		}
 
 		// now we don't have much choice, this is the saddest path, we'll use the concise template
-		err, templateOutput = executeTemplate(ghPrClientDetails.PrLogger, "argoCdDiffConcise", "argoCD-diff-pr-comment-concise.gotmpl", componentTemplateData)
+		err, templateOutput = executeTemplate("argoCdDiffConcise", "argoCD-diff-pr-comment-concise.gotmpl", componentTemplateData)
 		if err != nil {
-			ghPrClientDetails.PrLogger.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
-			return err
+			return comments, fmt.Errorf("Failed to generate ArgoCD diff comment template: err=%s\n", err)
 		}
-		err = commentPR(ghPrClientDetails, templateOutput)
+		comments = append(comments, templateOutput)
 		if err != nil {
-			return err
+			return comments, err
 		}
 	}
 
-	return nil
+	return comments, nil
 }
 
 // ReciveEventFile this one is similar to ReciveWebhook but it's used for CLI triggering, i  simulates a webhook event to use the same code path as the webhook handler.
@@ -490,21 +493,23 @@ func handleCommentPrEvent(ghPrClientDetails GhPrClientDetails, ce *github.IssueC
 }
 
 func commentPlanInPR(ghPrClientDetails GhPrClientDetails, promotions map[string]PromotionInstance) {
-	_, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "dryRunMsg", "dry-run-pr-comment.gotmpl", promotions)
+	err, templateOutput := executeTemplate("dryRunMsg", "dry-run-pr-comment.gotmpl", promotions)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Failed to generate dry-run comment template: err=%s\n", err)
+		return
+	}
 	_ = commentPR(ghPrClientDetails, templateOutput)
 }
 
-func executeTemplate(logger *log.Entry, templateName string, templateFile string, data interface{}) (error, string) {
+func executeTemplate(templateName string, templateFile string, data interface{}) (error, string) {
 	var templateOutput bytes.Buffer
 	messageTemplate, err := template.New(templateName).ParseFiles(getEnv("TEMPLATES_PATH", "templates/") + templateFile)
 	if err != nil {
-		logger.Errorf("Failed to parse template: err=%v", err)
-		return err, ""
+		return fmt.Errorf("Failed to parse template: err=%v", err), ""
 	}
 	err = messageTemplate.ExecuteTemplate(&templateOutput, templateName, data)
 	if err != nil {
-		logger.Errorf("Failed to execute template: err=%v", err)
-		return err, ""
+		return fmt.Errorf("Failed to execute template: err=%v", err), ""
 	}
 	return nil, templateOutput.String()
 }
@@ -635,7 +640,7 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 				templateData := map[string]interface{}{
 					"prNumber": *pull.Number,
 				}
-				err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "autoMerge", "auto-merge-comment.gotmpl", templateData)
+				err, templateOutput := executeTemplate("autoMerge", "auto-merge-comment.gotmpl", templateData)
 				if err != nil {
 					return err
 				}
