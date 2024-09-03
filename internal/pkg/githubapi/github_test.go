@@ -2,7 +2,10 @@ package githubapi
 
 import (
 	"bytes"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGenerateSafePromotionBranchName(t *testing.T) {
@@ -156,4 +159,31 @@ func TestIsSyncFromBranchAllowedForThisPath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrBody(t *testing.T) {
+	t.Parallel()
+	keys := []int{1, 2, 3}
+	newPrMetadata := prMetadata{
+		PreviousPromotionMetadata: map[int]promotionInstanceMetaData{
+			1: {
+				SourcePath:  "sourcePath1",
+				TargetPaths: []string{"targetPath1", "targetPath2"},
+			},
+			2: {
+				SourcePath:  "sourcePath2",
+				TargetPaths: []string{"targetPath3", "targetPath4"},
+			},
+			3: {
+				SourcePath:  "sourcePath3",
+				TargetPaths: []string{"targetPath5", "targetPath6"},
+			},
+		},
+	}
+	newPrBody := prBody(keys, newPrMetadata, "")
+	expectedPrBody, err := os.ReadFile("testdata/pr_body.golden.md")
+	if err != nil {
+		t.Fatalf("Error loading golden file: %s", err)
+	}
+	assert.Equal(t, string(expectedPrBody), newPrBody)
 }

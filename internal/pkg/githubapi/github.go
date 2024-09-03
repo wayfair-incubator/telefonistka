@@ -1038,24 +1038,26 @@ func generatePromotionPrBody(ghPrClientDetails GhPrClientDetails, components str
 		keys = append(keys, k)
 	}
 	sort.Ints(keys)
-	sp := ""
-	tp := ""
-	for i, k := range keys {
-		if len(newPrMetadata.PreviousPromotionMetadata[k].SourcePath) > 50 {
-			sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath[:45] + "...✂️"
-		} else {
-			sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath
-		}
-		tp = "[" + strings.Join(newPrMetadata.PreviousPromotionMetadata[k].TargetPaths, ",") + "]"
-		if len(tp) > 50 {
-			tp = tp[:45] + "...✂️"
-		}
-		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️ `%s`\n", strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", i), k, sp, tp)
-	}
+	newPrBody = prBody(keys, newPrMetadata, newPrBody)
 
 	prMetadataString, _ := newPrMetadata.serialize()
 
 	newPrBody = newPrBody + "\n<!--|Telefonistka data, do not delete|" + prMetadataString + "|-->"
+
+	return newPrBody
+}
+
+func prBody(keys []int, newPrMetadata prMetadata, newPrBody string) string {
+	const mkTab = "&nbsp;&nbsp;&nbsp;&nbsp;"
+	sp := ""
+	tp := ""
+
+	for i, k := range keys {
+		sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath
+		x := newPrMetadata.PreviousPromotionMetadata[k].TargetPaths
+		tp = strings.Join(x, fmt.Sprintf("`  \n%s`", strings.Repeat(mkTab, i+1)))
+		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️  \n%s`%s`  \n", strings.Repeat(mkTab, i), k, sp, strings.Repeat(mkTab, i+1), tp)
+	}
 
 	return newPrBody
 }
