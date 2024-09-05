@@ -11,6 +11,10 @@
       "mode": "read",
       "read_write": ".+\\.json" ,
       "read_only": [ "^/etc/telefonistka-gh-app-creds/.*" ]
+    },
+    "network": {
+      "incoming": "steal",
+      "outgoing": true
     }
   },
   "operator": false,
