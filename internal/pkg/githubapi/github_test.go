@@ -3,7 +3,6 @@ package githubapi
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -216,7 +215,7 @@ func TestGenerateArgoCdDiffComments(t *testing.T) {
 
 func readJSONFromFile(filename string, data interface{}) error {
 	// Read the JSON from the file
-	jsonData, err := ioutil.ReadFile(filename)
+	jsonData, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}
