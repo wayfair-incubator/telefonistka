@@ -1,14 +1,102 @@
 package argocd
 
 import (
+	"bytes"
 	"context"
+	"os"
+	"strings"
 	"testing"
+	"text/template"
 
 	argoappv1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/golang/mock/gomock"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/mocks"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+func readLiveTarget(t *testing.T) (live, target *unstructured.Unstructured, expected string) {
+	t.Helper()
+	live = readManifest(t, "testdata/"+t.Name()+".live")
+	target = readManifest(t, "testdata/"+t.Name()+".target")
+	expected = readFileString(t, "testdata/"+t.Name()+".want")
+	return live, target, expected
+}
+
+func readFileString(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func readManifest(t *testing.T, path string) *unstructured.Unstructured {
+	t.Helper()
+
+	s := readFileString(t, path)
+	obj, err := argoappv1.UnmarshalToUnstructured(s)
+	if err != nil {
+		t.Fatalf("unmarshal %v: %v", path, err)
+	}
+	return obj
+}
+
+func TestDiffLiveVsTargetObject(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+	}{
+		{"1"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			live, target, want := readLiveTarget(t)
+			got, err := diffLiveVsTargetObject(live, target)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			if got != want {
+				t.Errorf("got %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestRenderDiff(t *testing.T) {
+	t.Parallel()
+	live := readManifest(t, "testdata/TestRenderDiff.live")
+	target := readManifest(t, "testdata/TestRenderDiff.target")
+	want := readFileString(t, "testdata/TestRenderDiff.md")
+	data, err := diffLiveVsTargetObject(live, target)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// backticks are tricky https://github.com/golang/go/issues/24475
+	r := strings.NewReplacer("¬", "`")
+	tmpl := r.Replace("¬¬¬diff\n{{.}}¬¬¬\n")
+
+	rendered := renderTemplate(t, tmpl, data)
+
+	if got, want := rendered.String(), want; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func renderTemplate(t *testing.T, tpl string, data any) *bytes.Buffer {
+	t.Helper()
+	buf := bytes.NewBuffer(nil)
+	tmpl := template.New("")
+	tmpl = template.Must(tmpl.Parse(tpl))
+	if err := tmpl.Execute(buf, data); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	return buf
+}
 
 func TestFindArgocdAppBySHA1Label(t *testing.T) {
 	// Here the filtering is done on the ArgoCD server side, so we are just testing the function returns a app

@@ -52,7 +52,7 @@ func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlCli
 	getCommentNodeIdsParams := map[string]interface{}{
 		"owner":    githubv4.String(ghPrClientDetails.Owner),
 		"repo":     githubv4.String(ghPrClientDetails.Repo),
-		"prNumber": githubv4.Int(ghPrClientDetails.PrNumber),
+		"prNumber": githubv4.Int(ghPrClientDetails.PrNumber), //nolint:gosec // G115: type mismatch between shurcooL/githubv4 and google/go-github. Number taken from latter for use in query using former.
 	}
 
 	var minimizeCommentMutation struct {

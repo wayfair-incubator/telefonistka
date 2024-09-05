@@ -1,0 +1,54 @@
+{
+  "apiVersion": "commercetools.io/v1alpha1",
+  "kind": "Bar",
+  "rbacBindings": [
+    {
+      "clusterRoleBindings": [
+        {
+          "clusterRole": "view"
+        }
+      ],
+      "name": "security-audit-viewer-vault",
+      "subjects": [
+        {
+          "kind": "Group",
+          "name": "vault:some-team@domain.tld"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "generation": 46,
+    "labels": {
+      "argocd.argoproj.io/instance": "foobar-plg-gcp-eu-west1-v1"
+    },
+    "managedFields": [
+      {
+        "apiVersion": "commercetools.io/v1alpha1",
+        "fieldsType": "FieldsV1",
+        "fieldsV1": {
+          "f:metadata": {
+            "f:labels": {
+              "f:argocd.argoproj.io/instance": {}
+            }
+          },
+          "f:spec": {
+            "f:deploymentName": {},
+            "f:replicas": {}
+          }
+        },
+        "manager": "argocd-controller",
+        "operation": "Apply",
+        "time": "2024-08-30T15:08:52Z"
+      }
+    ],
+    "name": "example-baz-bar",
+    "namespace": "gitops-demo-ns2",
+    "resourceVersion": "2168525640",
+    "uid": "f845fd72-d6d9-48f2-b0f2-2def6807deb8"
+  },
+  "spec": {
+    "deploymentName": "example-baz-bar",
+    "replicas": 63
+  }
+}

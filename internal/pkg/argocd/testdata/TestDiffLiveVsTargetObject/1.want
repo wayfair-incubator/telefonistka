@@ -1,0 +1,16 @@
+diff live target
+--- live
++++ target
+@@ -17,11 +17,11 @@
+           f:replicas: {}
+       manager: argocd-controller
+       operation: Apply
+       time: "2024-08-30T15:08:52Z"
+     name: example-baz-bar
+     namespace: gitops-demo-ns2
+     resourceVersion: "2168525640"
+     uid: f845fd72-d6d9-48f2-b0f2-2def6807deb8
+   spec:
+     deploymentName: example-baz-bar
+-    replicas: 63
++    replicas: 42
