@@ -2,9 +2,9 @@ package githubapi
 
 import (
 	"bytes"
+	"encoding/json"
+	"io/ioutil"
 	"testing"
-
-	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
 )
 
 func TestGenerateSafePromotionBranchName(t *testing.T) {
@@ -163,22 +163,25 @@ func TestIsSyncFromBranchAllowedForThisPath(t *testing.T) {
 func TestGenerateArgoCdDiffComments(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
-		diffCommentData  DiffCommentData
-		expectedComments []string
-		maxCommentLength int
+		diffCommentDataTestDataFileName string
+		expectedNumberOfComments        int
+		maxCommentLength                int
 	}{
-		"Multiple diff Single comment": {
-			diffCommentData: DiffCommentData{
-				DiffOfChangedComponents: []argocd.DiffResult{},
-				HasSyncableComponens:    true,
-				BranchName:              "fooBar",
-				Header:                  "some Text",
-			},
-			expectedComments: []string{
-				"foo",
-			},
+		"All cluster diffs fit in one comment": {
+			diffCommentDataTestDataFileName: "./testdata/diff_comment_data_test.json",
+			expectedNumberOfComments:        1,
+			maxCommentLength:                65535,
 		},
-		"Multiple diff Multiple comments": {},
+		"Split diffs, one cluster per comment": {
+			diffCommentDataTestDataFileName: "./testdata/diff_comment_data_test.json",
+			expectedNumberOfComments:        3,
+			maxCommentLength:                1000,
+		},
+		"Split diffs, but maxCommentLength is very small so need to use the concise template": {
+			diffCommentDataTestDataFileName: "./testdata/diff_comment_data_test.json",
+			expectedNumberOfComments:        3,
+			maxCommentLength:                600,
+		},
 	}
 
 	for name, tc := range tests {
@@ -186,11 +189,39 @@ func TestGenerateArgoCdDiffComments(t *testing.T) {
 		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			var diffCommentData DiffCommentData
+			err := readJSONFromFile(tc.diffCommentDataTestDataFileName, &diffCommentData)
+			if err != nil {
+				t.Errorf("Error reading test data file: %s", err)
+			}
 
-			result, _ := generateArgoCdDiffComments(tc.diffCommentData, tc.maxCommentLength)
-			if len(result) != len(tc.expectedComments) {
-				t.Errorf("%s: Expected result to be %v, got %v", name, tc.expectedComments, result)
+			result, err := generateArgoCdDiffComments(diffCommentData, tc.maxCommentLength)
+			if err != nil {
+				t.Errorf("Error generating diff comments: %s", err)
+			}
+			if len(result) != tc.expectedNumberOfComments {
+				t.Errorf("%s: Expected number of comments to be %v, got %v", name, tc.expectedNumberOfComments, len(result))
+			}
+			for _, comment := range result {
+				if len(comment) > tc.maxCommentLength {
+					t.Errorf("%s: Expected comment length to be less than %d, got %d", name, tc.maxCommentLength, len(comment))
+				}
 			}
 		})
 	}
+}
+
+func readJSONFromFile(filename string, data interface{}) error {
+	// Read the JSON from the file
+	jsonData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	// Unserialize the JSON into the provided struct
+	err = json.Unmarshal(jsonData, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
