@@ -521,7 +521,9 @@ func generateDiffOfAComponent(ctx context.Context, commentDiff bool, componentPa
 	log.Debugf("Generating diff for component %s", componentPath)
 	componentDiffResult.HasDiff, componentDiffResult.DiffElements, componentDiffResult.DiffError = generateArgocdAppDiff(ctx, commentDiff, app, detailedProject.Project, resources, argoSettings, diffOption)
 
-	if componentDiffResult.AppWasTemporarilyCreated {
+	// only delete the temprorary app object if it was created and there was no error on diff
+	// otherwise let's keep it for investigation
+	if componentDiffResult.AppWasTemporarilyCreated && componentDiffResult.DiffError == nil {
 		// Delete the temporary app object
 		_, err = ac.app.Delete(ctx, &application.ApplicationDeleteRequest{Name: &app.Name, AppNamespace: &app.Namespace})
 		if err != nil {

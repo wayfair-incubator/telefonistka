@@ -4,8 +4,12 @@ Diff of ArgoCD applications:
 
 
 {{if $appDiffResult.DiffError }}
-⚠️ ⚠️ **Error getting diff from ArgoCD** (`{{ $appDiffResult.ComponentPath }}`) ⚠️ ⚠️ 
-``` 
+⚠️ ⚠️ **Error getting diff from ArgoCD** (`{{ $appDiffResult.ComponentPath }}`) ⚠️ ⚠️
+Please check the App Conditions of <img src="https://argo-cd.readthedocs.io/en/stable/assets/favicon.png" width="20"/> **[{{ $appDiffResult.ArgoCdAppName }}]({{ $appDiffResult.ArgoCdAppURL }})** for more details.
+{{- if $appDiffResult.AppWasTemporarilyCreated }}
+⚠️ For investigation we kept the temporary application, please make sure to clean it up later! ⚠️
+{{- end}}
+```
 {{ $appDiffResult.DiffError }}
 
 ```
