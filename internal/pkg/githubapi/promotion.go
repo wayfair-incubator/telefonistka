@@ -76,7 +76,7 @@ func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 		}
 	}
 	if len(diffOutputMap) != 0 {
-		err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "driftMsg", "drift-pr-comment.gotmpl", diffOutputMap)
+		err, templateOutput := executeTemplate("driftMsg", "drift-pr-comment.gotmpl", diffOutputMap)
 		if err != nil {
 			return err
 		}

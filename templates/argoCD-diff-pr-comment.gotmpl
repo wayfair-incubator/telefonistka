@@ -1,4 +1,7 @@
 {{define "argoCdDiff"}}
+{{ if .Header }}
+{{ .Header }}
+{{- end}}
 Diff of ArgoCD applications:
 {{ range $appDiffResult := .DiffOfChangedComponents }}
 
@@ -44,7 +47,7 @@ It will not be present in ArgoCD UI for more than a few seconds and it can not b
 
 {{- end }}
 
-{{- if .HasSyncableComponens }}
+{{- if .HasSyncableComponents }}
 
 - [ ] <!-- telefonistka-argocd-branch-sync --> Set ArgoCD apps Target Revision to `{{ .BranchName }}`  
 

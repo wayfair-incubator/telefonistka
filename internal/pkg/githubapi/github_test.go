@@ -2,6 +2,7 @@ package githubapi
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -158,6 +159,69 @@ func TestIsSyncFromBranchAllowedForThisPath(t *testing.T) {
 				t.Errorf("%s: Expected result to be %v, got %v", name, tc.expectedResult, result)
 			}
 		})
+	}
+}
+
+func TestGenerateArgoCdDiffComments(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		diffCommentDataTestDataFileName string
+		expectedNumberOfComments        int
+		maxCommentLength                int
+	}{
+		"All cluster diffs fit in one comment": {
+			diffCommentDataTestDataFileName: "./testdata/diff_comment_data_test.json",
+			expectedNumberOfComments:        1,
+			maxCommentLength:                65535,
+		},
+		"Split diffs, one cluster per comment": {
+			diffCommentDataTestDataFileName: "./testdata/diff_comment_data_test.json",
+			expectedNumberOfComments:        3,
+			maxCommentLength:                1000,
+		},
+		"Split diffs, but maxCommentLength is very small so need to use the concise template": {
+			diffCommentDataTestDataFileName: "./testdata/diff_comment_data_test.json",
+			expectedNumberOfComments:        3,
+			maxCommentLength:                600,
+		},
+	}
+
+	for name, tc := range tests {
+		tc := tc // capture range variable
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			var diffCommentData DiffCommentData
+			readJSONFromFile(t, tc.diffCommentDataTestDataFileName, &diffCommentData)
+
+			result, err := generateArgoCdDiffComments(diffCommentData, tc.maxCommentLength)
+			if err != nil {
+				t.Errorf("Error generating diff comments: %s", err)
+			}
+			if len(result) != tc.expectedNumberOfComments {
+				t.Errorf("%s: Expected number of comments to be %v, got %v", name, tc.expectedNumberOfComments, len(result))
+			}
+			for _, comment := range result {
+				if len(comment) > tc.maxCommentLength {
+					t.Errorf("%s: Expected comment length to be less than %d, got %d", name, tc.maxCommentLength, len(comment))
+				}
+			}
+		})
+	}
+}
+
+func readJSONFromFile(t *testing.T, filename string, data interface{}) {
+	t.Helper()
+	// Read the JSON from the file
+	jsonData, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("Error loading test data file: %s", err)
+	}
+
+	// Unserialize the JSON into the provided struct
+	err = json.Unmarshal(jsonData, data)
+	if err != nil {
+		t.Fatalf("Error unmarshalling JSON: %s", err)
 	}
 }
 
