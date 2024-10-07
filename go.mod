@@ -15,6 +15,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v62 v62.0.0
+	github.com/google/go-github/v66 v66.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/migueleliasweb/go-github-mock v0.0.22
