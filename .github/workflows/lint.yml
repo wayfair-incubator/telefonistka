@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 🧼 lint renovate config # Validates changes to renovate.json config file
-        uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.0.1
+        uses: suzuki-shunsuke/github-action-renovate-config-validator@v1.1.0
         with:
           config_file_path: 'renovate.json'
   golangci:
