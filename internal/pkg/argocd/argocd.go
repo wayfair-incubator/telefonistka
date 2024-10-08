@@ -324,7 +324,7 @@ func SetArgoCDAppRevision(ctx context.Context, componentPath string, revision st
 		return fmt.Errorf("Error creating ArgoCD clients: %w", err)
 	}
 	foundApp, err = findArgocdApp(ctx, componentPath, repo, ac.app, useSHALabelForArgoDicovery)
-	if err != nil {
+	if foundApp == nil || err != nil {
 		return fmt.Errorf("error finding ArgoCD application for component path %s: %w", componentPath, err)
 	}
 	if foundApp.Spec.Source.TargetRevision == revision {
