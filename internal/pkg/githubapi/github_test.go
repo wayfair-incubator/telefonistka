@@ -156,6 +156,7 @@ func TestIsSyncFromBranchAllowedForThisPath(t *testing.T) {
 			t.Parallel()
 			result := isSyncFromBranchAllowedForThisPath(tc.allowedPathRegex, tc.path)
 			if result != tc.expectedResult {
+				w
 				t.Errorf("%s: Expected result to be %v, got %v", name, tc.expectedResult, result)
 			}
 		})
@@ -184,6 +185,10 @@ func TestGenerateArgoCdDiffComments(t *testing.T) {
 			expectedNumberOfComments:        3,
 			maxCommentLength:                600,
 		},
+	}
+
+	if err := os.Setenv("TEMPLATES_PATH", "../../../templates/"); err != nil {
+		t.Fatal(err)
 	}
 
 	for name, tc := range tests {
