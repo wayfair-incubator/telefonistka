@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/go-github/v62/github"
 	log "github.com/sirupsen/logrus"
-	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
-	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
+	cfg "github.com/wayfair-incubator/telefonistka/pkg/configuration"
+	prom "github.com/wayfair-incubator/telefonistka/pkg/prometheus"
 	yaml "gopkg.in/yaml.v2"
 )
 

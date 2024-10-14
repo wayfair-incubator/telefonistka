@@ -1,8 +1,6 @@
-package telefonistka
+package utils
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestUpdateYaml(t *testing.T) {
 	t.Parallel()
@@ -79,7 +77,7 @@ image:
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := updateYaml(tt.yamlContent, tt.address, tt.value)
+			got, err := UpdateYaml(tt.yamlContent, tt.address, tt.value)
 			if err != nil {
 				t.Errorf("updateYaml() error = %v", err)
 				return

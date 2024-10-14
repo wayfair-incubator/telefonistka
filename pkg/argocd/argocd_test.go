@@ -10,7 +10,7 @@ import (
 
 	argoappv1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/golang/mock/gomock"
-	"github.com/wayfair-incubator/telefonistka/internal/pkg/mocks"
+	"github.com/wayfair-incubator/telefonistka/pkg/mocks"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

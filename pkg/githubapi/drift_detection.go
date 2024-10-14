@@ -9,7 +9,7 @@ import (
 	"github.com/hexops/gotextdiff"
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
-	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
+	prom "github.com/wayfair-incubator/telefonistka/pkg/prometheus"
 )
 
 func generateDiffOutput(ghPrClientDetails GhPrClientDetails, defaultBranch string, sourceFilesSHAs map[string]string, targetFilesSHAs map[string]string, sourcePath string, targetPath string) (bool, string, error) {

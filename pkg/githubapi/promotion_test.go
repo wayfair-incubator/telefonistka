@@ -10,7 +10,7 @@ import (
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
+	cfg "github.com/wayfair-incubator/telefonistka/pkg/configuration"
 )
 
 func generatePromotionPlanMetadataTestHelper(t *testing.T, config *cfg.Config, expectedPromotion map[string]PromotionInstance, mockedHTTPClient *http.Client) {

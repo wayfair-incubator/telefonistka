@@ -25,7 +25,7 @@ import (
 	"github.com/argoproj/argo-cd/v2/util/argo/normalizers"
 	"github.com/argoproj/gitops-engine/pkg/sync/hook"
 	log "github.com/sirupsen/logrus"
-	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd/diff"
+	"github.com/wayfair-incubator/telefonistka/pkg/argocd/diff"
 	yaml2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

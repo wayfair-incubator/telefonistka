@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-test/deep"
 	"github.com/google/go-github/v62/github"
-	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
+	cfg "github.com/wayfair-incubator/telefonistka/pkg/configuration"
 )
 
 func TestGenerateListOfEndpoints(t *testing.T) {

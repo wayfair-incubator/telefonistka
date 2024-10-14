@@ -22,9 +22,9 @@ import (
 	"github.com/google/go-github/v62/github"
 	lru "github.com/hashicorp/golang-lru/v2"
 	log "github.com/sirupsen/logrus"
-	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
-	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
-	prom "github.com/wayfair-incubator/telefonistka/internal/pkg/prometheus"
+	"github.com/wayfair-incubator/telefonistka/pkg/argocd"
+	cfg "github.com/wayfair-incubator/telefonistka/pkg/configuration"
+	prom "github.com/wayfair-incubator/telefonistka/pkg/prometheus"
 	"golang.org/x/exp/maps"
 )
 
