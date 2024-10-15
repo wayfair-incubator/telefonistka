@@ -2,33 +2,33 @@ module github.com/wayfair-incubator/telefonistka
 
 go 1.22
 
-toolchain go1.22.1
+toolchain go1.23.2
 
 require github.com/alexliesenfeld/health v0.8.0
 
 require (
 	github.com/argoproj/argo-cd/v2 v2.11.2
-	github.com/argoproj/gitops-engine v0.7.1-0.20240416142647-fbecbb86e412
-	github.com/bradleyfalzon/ghinstallation/v2 v2.10.0
-	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/go-test/deep v1.1.0
+	github.com/argoproj/gitops-engine v0.7.3
+	github.com/bradleyfalzon/ghinstallation/v2 v2.11.0
+	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/go-test/deep v1.1.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v62 v62.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/migueleliasweb/go-github-mock v0.0.22
-	github.com/mikefarah/yq/v4 v4.43.1
-	github.com/prometheus/client_golang v1.19.0
+	github.com/migueleliasweb/go-github-mock v0.0.23
+	github.com/mikefarah/yq/v4 v4.44.3
+	github.com/prometheus/client_golang v1.20.5
 	github.com/shurcooL/githubv4 v0.0.0-20240120211514-18a1ae0e79dc
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
-	golang.org/x/oauth2 v0.19.0
-	google.golang.org/grpc v1.63.2
+	golang.org/x/oauth2 v0.23.0
+	google.golang.org/grpc v1.67.1
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.26.11
-	k8s.io/apimachinery v0.26.11
+	k8s.io/api v0.31.1
+	k8s.io/apimachinery v0.31.1
 )
 
 require (
@@ -193,6 +193,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.12.1
+replace sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.18.0
 
-replace sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.9
+replace sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.18.1
