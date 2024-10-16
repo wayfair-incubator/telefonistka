@@ -128,7 +128,7 @@ func TestGenerateDiffOutputDiffFileContent(t *testing.T) {
 @@ -1 +1 @@
 -File A content
 +File B content` + "\n\n```\n\n" + `### Blame Links:
-[source-path/file-1.text](https://api.github.com/AnOwner/Arepo/blame/HEAD/source-path/file-1.text)
+[source-path/file-1.text](https://github.com/AnOwner/Arepo/blame/HEAD/source-path/file-1.text)
 `
 
 	var sourceFilesSHAs map[string]string

@@ -3,6 +3,7 @@ package githubapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -250,4 +251,35 @@ func TestPrBody(t *testing.T) {
 		t.Fatalf("Error loading golden file: %s", err)
 	}
 	assert.Equal(t, string(expectedPrBody), newPrBody)
+}
+
+func TestGhPrClientDetailsGetBlameURLPrefix(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		Host  string
+		Owner string
+		Repo  string
+	}{
+		{
+			"",
+			"commercetools",
+			"test",
+		},
+		{
+			"https://myserver.github.com",
+			"some-other-owner",
+			"some-other-repo",
+		},
+	}
+
+	for _, tc := range tests {
+		os.Setenv("GITHUB_HOST", tc.Host)
+		ghPrClientDetails := &GhPrClientDetails{Owner: tc.Owner, Repo: tc.Repo}
+		blameURLPrefix := ghPrClientDetails.getBlameURLPrefix()
+		host := tc.Host
+		if host == "" {
+			host = githubPublicBaseURL
+		}
+		assert.Equal(t, fmt.Sprintf("%s/%s/%s/blame", host, ghPrClientDetails.Owner, ghPrClientDetails.Repo), blameURLPrefix)
+	}
 }

@@ -28,7 +28,10 @@ import (
 	"golang.org/x/exp/maps"
 )
 
-const githubCommentMaxSize = 65536
+const (
+	githubCommentMaxSize = 65536
+	githubPublicBaseURL  = "https://github.com"
+)
 
 type DiffCommentData struct {
 	DiffOfChangedComponents []argocd.DiffResult
@@ -91,6 +94,14 @@ func (ghPrClientDetails *GhPrClientDetails) getPrMetadata(prBody string) {
 			}
 		}
 	}
+}
+
+func (ghPrClientDetails *GhPrClientDetails) getBlameURLPrefix() string {
+	githubHost := getEnv("GITHUB_HOST", "")
+	if githubHost == "" {
+		githubHost = githubPublicBaseURL
+	}
+	return fmt.Sprintf("%s/%s/%s/blame", githubHost, ghPrClientDetails.Owner, ghPrClientDetails.Repo)
 }
 
 func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPrClientDetails, mainGithubClientPair GhClientPair, approverGithubClientPair GhClientPair, ctx context.Context) {
