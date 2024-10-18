@@ -3,6 +3,7 @@ package argocd
 import (
 	"bytes"
 	"context"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	argoappv1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/golang/mock/gomock"
 	"github.com/wayfair-incubator/telefonistka/internal/pkg/mocks"
+	"github.com/wayfair-incubator/telefonistka/internal/pkg/testutils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -271,5 +273,41 @@ func TestFindArgocdAppByPathAnnotationRelative2(t *testing.T) {
 		t.Errorf("Error: %v", err)
 	} else if app.Name != "right-app" {
 		t.Errorf("App name is not right-app")
+	}
+}
+
+func TestFindArgocdAppByPathAnnotationNotFound(t *testing.T) {
+	t.Parallel()
+	defer testutils.Quiet()()
+	ctx := context.Background()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockApplicationClient := mocks.NewMockApplicationServiceClient(ctrl)
+	expectedResponse := &argoappv1.ApplicationList{
+		Items: []argoappv1.Application{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"argocd.argoproj.io/manifest-generate-paths": "non-existing-path",
+					},
+					Name: "non-existing-app",
+				},
+				Spec: argoappv1.ApplicationSpec{
+					Source: &argoappv1.ApplicationSource{
+						RepoURL: "",
+						Path:    "non-existing/",
+					},
+				},
+			},
+		},
+	}
+
+	mockApplicationClient.EXPECT().List(gomock.Any(), gomock.Any()).Return(expectedResponse, nil)
+	app, err := findArgocdAppByManifestPathAnnotation(ctx, "non-existing/path", "some-repo", mockApplicationClient)
+	if err != nil {
+		t.Errorf("Error: %v", err)
+	}
+	if app != nil {
+		log.Fatal("expected the application to be nil")
 	}
 }

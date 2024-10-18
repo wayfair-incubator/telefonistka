@@ -187,6 +187,10 @@ func TestGenerateArgoCdDiffComments(t *testing.T) {
 		},
 	}
 
+	if err := os.Setenv("TEMPLATES_PATH", "../../../templates/"); err != nil { //nolint:tenv
+		t.Fatal(err)
+	}
+
 	for name, tc := range tests {
 		tc := tc // capture range variable
 		name := name
