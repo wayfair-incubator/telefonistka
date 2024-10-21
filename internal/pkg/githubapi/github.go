@@ -1104,12 +1104,30 @@ func prBody(keys []int, newPrMetadata prMetadata, newPrBody string) string {
 
 	for i, k := range keys {
 		sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath
-		x := newPrMetadata.PreviousPromotionMetadata[k].TargetPaths
+		x := commonPaths(newPrMetadata.PromotedPaths, newPrMetadata.PreviousPromotionMetadata[k].TargetPaths)
 		tp = strings.Join(x, fmt.Sprintf("`  \n%s`", strings.Repeat(mkTab, i+1)))
 		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️  \n%s`%s`  \n", strings.Repeat(mkTab, i), k, sp, strings.Repeat(mkTab, i+1), tp)
 	}
 
 	return newPrBody
+}
+
+// commonPaths takes two slices of promotion paths and returns a slice
+// containing only promotion paths that they have in common.
+func commonPaths(paths1 []string, paths2 []string) []string {
+	if (len(paths1) == 0) || (len(paths2) == 0) {
+		return []string{}
+	}
+	commonPaths := []string{}
+	for _, path1 := range paths1 {
+		for _, path2 := range paths2 {
+			if path1 == path2 {
+				commonPaths = append(commonPaths, path1)
+			}
+		}
+	}
+
+	return commonPaths
 }
 
 func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, newPrTitle string, newPrBody string, defaultBranch string, assignee string) (*github.PullRequest, error) {

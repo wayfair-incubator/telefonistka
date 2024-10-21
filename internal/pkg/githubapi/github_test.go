@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -234,6 +235,9 @@ func TestPrBody(t *testing.T) {
 	t.Parallel()
 	keys := []int{1, 2, 3}
 	newPrMetadata := prMetadata{
+		// note: "targetPath3" is missing from the list of promoted paths, so it should not
+		// be included in the new PR body.
+		PromotedPaths: []string{"targetPath1", "targetPath2", "targetPath4", "targetPath5", "targetPath6"},
 		PreviousPromotionMetadata: map[int]promotionInstanceMetaData{
 			1: {
 				SourcePath:  "sourcePath1",
@@ -287,5 +291,73 @@ func TestGhPrClientDetailsGetBlameURLPrefix(t *testing.T) {
 		ghPrClientDetails := &GhPrClientDetails{Owner: tc.Owner, Repo: tc.Repo}
 		blameURLPrefix := ghPrClientDetails.getBlameURLPrefix()
 		assert.Equal(t, tc.ExpectURL, blameURLPrefix)
+	}
+}
+
+func Test_commonPaths(t *testing.T) {
+	type args struct {
+		paths1 []string
+		paths2 []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "same paths",
+			args: args{
+				paths1: []string{"path1", "path2", "path3"},
+				paths2: []string{"path1", "path2", "path3"},
+			},
+			want: []string{"path1", "path2", "path3"},
+		},
+		{
+			name: "paths1 is empty",
+			args: args{
+				paths1: []string{},
+				paths2: []string{"path1", "path2", "path3"},
+			},
+			want: []string{},
+		},
+		{
+			name: "paths2 is empty",
+			args: args{
+				paths1: []string{"path1", "path2", "path3"},
+				paths2: []string{},
+			},
+			want: []string{},
+		},
+		{
+			name: "paths2 missing elements",
+			args: args{
+				paths1: []string{"path1", "path2", "path3"},
+				paths2: []string{""},
+			},
+			want: []string{},
+		},
+		{
+			name: "path1 missing elements",
+			args: args{
+				paths1: []string{""},
+				paths2: []string{"path1", "path2"},
+			},
+			want: []string{},
+		},
+		{
+			name: "path1 and path2 common elements",
+			args: args{
+				paths1: []string{"path1", "path3"},
+				paths2: []string{"path1", "path2", "path3"},
+			},
+			want: []string{"path1", "path3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := commonPaths(tt.args.paths1, tt.args.paths2); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("unionPaths() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
