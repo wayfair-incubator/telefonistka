@@ -1,8 +1,8 @@
 module github.com/wayfair-incubator/telefonistka
 
-go 1.22
+go 1.23
 
-toolchain go1.22.1
+toolchain go1.23.2
 
 require github.com/alexliesenfeld/health v0.8.0
 
@@ -17,7 +17,7 @@ require (
 	github.com/google/go-github/v62 v62.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/migueleliasweb/go-github-mock v0.0.22
+	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/mikefarah/yq/v4 v4.43.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/shurcooL/githubv4 v0.0.0-20240120211514-18a1ae0e79dc
@@ -88,6 +88,7 @@ require (
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/go-github/v56 v56.0.0 // indirect
 	github.com/google/go-github/v60 v60.0.0 // indirect
+	github.com/google/go-github/v64 v64.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -156,12 +157,12 @@ require (
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/text v0.19.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.21.0 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/genproto v0.0.0-20240401170217-c3f982113cda // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240401170217-c3f982113cda // indirect
