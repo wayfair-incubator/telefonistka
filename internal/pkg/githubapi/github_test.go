@@ -235,6 +235,9 @@ func TestPrBody(t *testing.T) {
 	t.Parallel()
 	keys := []int{1, 2, 3}
 	newPrMetadata := prMetadata{
+		// note: "targetPath3" is missing from the list of promoted paths, so it should not
+		// be included in the new PR body.
+		PromotedPaths: []string{"targetPath1", "targetPath2", "targetPath4", "targetPath5", "targetPath6"},
 		PreviousPromotionMetadata: map[int]promotionInstanceMetaData{
 			1: {
 				SourcePath:  "sourcePath1",
@@ -335,6 +338,75 @@ func TestCommitStatusTargetURL(t *testing.T) {
 			if result != expectedURL {
 				t.Errorf("%s: Expected URL to be %q, got %q", name, expectedURL, result)
 			}
+		})
+	}
+}
+
+func Test_identifyCommonPaths(t *testing.T) {
+	t.Parallel()
+	type args struct {
+		promoPaths  []string
+		targetPaths []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "same paths",
+			args: args{
+				promoPaths:  []string{"path1/component/path", "path2/component/path", "path3/component/path"},
+				targetPaths: []string{"path1", "path2", "path3"},
+			},
+			want: []string{"path1", "path2", "path3"},
+		},
+		{
+			name: "paths1 is empty",
+			args: args{
+				promoPaths:  []string{},
+				targetPaths: []string{"path1", "path2", "path3"},
+			},
+			want: nil,
+		},
+		{
+			name: "paths2 is empty",
+			args: args{
+				promoPaths:  []string{"path1/component/some", "path2/some/other", "path3"},
+				targetPaths: []string{},
+			},
+			want: nil,
+		},
+		{
+			name: "paths2 missing elements",
+			args: args{
+				promoPaths:  []string{"path1", "path2", "path3"},
+				targetPaths: []string{""},
+			},
+			want: nil,
+		},
+		{
+			name: "path1 missing elements",
+			args: args{
+				promoPaths:  []string{""},
+				targetPaths: []string{"path1", "path2"},
+			},
+			want: nil,
+		},
+		{
+			name: "path1 and path2 common elements",
+			args: args{
+				promoPaths:  []string{"path1/component/path", "path3/component/also"},
+				targetPaths: []string{"path1", "path2", "path3"},
+			},
+			want: []string{"path1", "path3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := identifyCommonPaths(tt.args.promoPaths, tt.args.targetPaths)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

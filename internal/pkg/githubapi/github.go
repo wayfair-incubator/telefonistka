@@ -1109,12 +1109,38 @@ func prBody(keys []int, newPrMetadata prMetadata, newPrBody string) string {
 
 	for i, k := range keys {
 		sp = newPrMetadata.PreviousPromotionMetadata[k].SourcePath
-		x := newPrMetadata.PreviousPromotionMetadata[k].TargetPaths
+		x := identifyCommonPaths(newPrMetadata.PromotedPaths, newPrMetadata.PreviousPromotionMetadata[k].TargetPaths)
 		tp = strings.Join(x, fmt.Sprintf("`  \n%s`", strings.Repeat(mkTab, i+1)))
 		newPrBody = newPrBody + fmt.Sprintf("%s↘️  #%d  `%s` ➡️  \n%s`%s`  \n", strings.Repeat(mkTab, i), k, sp, strings.Repeat(mkTab, i+1), tp)
 	}
 
 	return newPrBody
+}
+
+// identifyCommonPaths takes a slice of promotion paths and target paths and
+// returns a slice containing paths in common.
+func identifyCommonPaths(promotionPaths []string, targetPaths []string) []string {
+	if (len(promotionPaths) == 0) || (len(targetPaths) == 0) {
+		return nil
+	}
+	var commonPaths []string
+	for _, pp := range promotionPaths {
+		if pp == "" {
+			continue
+		}
+		for _, tp := range targetPaths {
+			if tp == "" {
+				continue
+			}
+			// strings.HasPrefix is used to check that the target path and promotion path match instead of
+			// using 'pp ==  tp' because the promotion path is targetPath + component.
+			if strings.HasPrefix(pp, tp) {
+				commonPaths = append(commonPaths, tp)
+			}
+		}
+	}
+
+	return commonPaths
 }
 
 func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, newPrTitle string, newPrBody string, defaultBranch string, assignee string) (*github.PullRequest, error) {
