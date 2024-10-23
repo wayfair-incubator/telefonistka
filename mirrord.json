@@ -10,7 +10,7 @@
     "fs": {
       "mode": "read",
       "read_write": ".+\\.json" ,
-      "read_only": [ "^/etc/telefonistka-gh-app-creds/.*" ]
+      "read_only": [ "^/etc/telefonistka-gh-app-creds/.*",  "^/etc/telefonistka-gh-app-config/.*" ]
     },
     "network": {
       "incoming": "steal",

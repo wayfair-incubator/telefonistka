@@ -91,6 +91,12 @@ Environment variables for the webhook process:
 
 `TEMPLATES_PATH` Telefonistka uses Go templates to format GitHub PR comments, the variable override the default templates path("templates/"), useful for environments where the container workdir is overridden(like GitHub Actions) or when custom templates are desired.
 
+`CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH` allows you to set a custom [commit status](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#about-commit-statuses) target URL using Go templates. The commit time will be passed as a dynamic parameter to the template. Here is an example:
+
+```console
+https://custom-url.com?time={{.CommitTime}}
+```
+
 `ARGOCD_SERVER_ADDR` Hostname and port of the ArgoCD API endpoint, like `argocd-server.argocd.svc.cluster.local:443`, default is `localhost:8080"`
 
 `ARGOCD_TOKEN` ArgoCD authentication token.

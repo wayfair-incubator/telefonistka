@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -287,5 +288,53 @@ func TestGhPrClientDetailsGetBlameURLPrefix(t *testing.T) {
 		ghPrClientDetails := &GhPrClientDetails{Owner: tc.Owner, Repo: tc.Repo}
 		blameURLPrefix := ghPrClientDetails.getBlameURLPrefix()
 		assert.Equal(t, tc.ExpectURL, blameURLPrefix)
+	}
+}
+
+func TestCommitStatusTargetURL(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		expectedURL   string
+		templateFile  string
+		validTemplate bool
+	}{
+		"Default URL when no env var is set": {
+			expectedURL:   "https://github.com/wayfair-incubator/telefonistka",
+			templateFile:  "",
+			validTemplate: false,
+		},
+		"Custom URL from template": {
+			expectedURL:   "https://custom-url.com?time=%d&calculated_time=%d",
+			templateFile:  "./testdata/custom_commit_status_valid_template.gotmpl",
+			validTemplate: true,
+		},
+		"Invalid template": {
+			expectedURL:   "https://github.com/wayfair-incubator/telefonistka",
+			templateFile:  "./testdata/custom_commit_status_invalid_template.gotmpl",
+			validTemplate: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			now := time.Now()
+
+			expectedURL := tc.expectedURL
+			if tc.templateFile != "" {
+				os.Setenv("CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH", tc.templateFile)
+				defer os.Unsetenv("CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH")
+
+				if tc.validTemplate {
+					expectedURL = fmt.Sprintf(expectedURL, now.UnixMilli(), now.Add(-10*time.Minute).UnixMilli())
+				}
+			}
+
+			result := commitStatusTargetURL(now)
+			if result != expectedURL {
+				t.Errorf("%s: Expected URL to be %q, got %q", name, expectedURL, result)
+			}
+		})
 	}
 }
