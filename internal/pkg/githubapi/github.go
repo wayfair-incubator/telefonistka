@@ -34,10 +34,10 @@ const (
 )
 
 type DiffCommentData struct {
-	DiffOfChangedComponents []argocd.DiffResult
-	HasSyncableComponents   bool
-	BranchName              string
-	Header                  string
+	DiffOfChangedComponents   []argocd.DiffResult
+	DisplaySyncBranchCheckBox bool
+	BranchName                string
+	Header                    string
 }
 
 type promotionInstanceMetaData struct {
@@ -102,6 +102,30 @@ func (ghPrClientDetails *GhPrClientDetails) getBlameURLPrefix() string {
 		githubHost = githubPublicBaseURL
 	}
 	return fmt.Sprintf("%s/%s/%s/blame", githubHost, ghPrClientDetails.Owner, ghPrClientDetails.Repo)
+}
+
+// This function is used to check if we should display the sync branch checkbox in the PR comment.
+// This depends on the allowSyncfromBranchPathRegex configuration and whether the component is new or not.
+func shouldSyncBranchCheckBoxBeDisplayed(componentPathList []string, allowSyncfromBranchPathRegex string, diffOfChangedComponents []argocd.DiffResult) bool {
+	var displaySyncBranchCheckBox bool
+
+out:
+	for _, componentPath := range componentPathList {
+		if isSyncFromBranchAllowedForThisPath(allowSyncfromBranchPathRegex, componentPath) {
+			// Here we are checking if the syncable component is not a new app that was temporarily created.
+			// We don't support syncing new apps from branches
+			for _, diffOfChangedComponent := range diffOfChangedComponents {
+				if diffOfChangedComponent.ComponentPath == componentPath {
+					if !diffOfChangedComponent.AppWasTemporarilyCreated {
+						displaySyncBranchCheckBox = true
+						break out
+					}
+				}
+			}
+		}
+	}
+
+	return displaySyncBranchCheckBox
 }
 
 func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPrClientDetails, mainGithubClientPair GhClientPair, approverGithubClientPair GhClientPair, ctx context.Context) {
@@ -192,12 +216,8 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 					BranchName:              ghPrClientDetails.Ref,
 				}
 
-				for _, componentPath := range componentPathList {
-					if isSyncFromBranchAllowedForThisPath(config.Argocd.AllowSyncfromBranchPathRegex, componentPath) {
-						diffCommentData.HasSyncableComponents = true
-						break
-					}
-				}
+				diffCommentData.DisplaySyncBranchCheckBox = shouldSyncBranchCheckBoxBeDisplayed(componentPathList, config.Argocd.AllowSyncfromBranchPathRegex, diffOfChangedComponents)
+
 				comments, err := generateArgoCdDiffComments(diffCommentData, githubCommentMaxSize)
 				if err != nil {
 					prHandleError = err
