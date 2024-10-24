@@ -47,13 +47,13 @@ jobs:
 
       # Workaround: https://github.com/docker/build-push-action/issues/461
       - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@5138f76647652447004da686b2411557eaf65f33
+        uses: docker/setup-buildx-action@460e45646ded27e46146cedd75d922e7fd9ef69f
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into GH registry (ghcr.io)
         if: github.event_name != 'pull_request'  
-        uses: docker/login-action@70fccc794acd729b2b22dd6a326895f286447728
+        uses: docker/login-action@5d8785b43a795ee002a17dbf1a2235dc1997224b
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -61,7 +61,7 @@ jobs:
 
       - name: Log into Docker Hub registry 
         if: github.event_name != 'pull_request' && env.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@70fccc794acd729b2b22dd6a326895f286447728
+        uses: docker/login-action@5d8785b43a795ee002a17dbf1a2235dc1997224b
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -72,7 +72,7 @@ jobs:
       # 2nd image name is for DockerHub image
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@f7b4ed12385588c3f9bc252f0a2b520d83b52d48
+        uses: docker/metadata-action@70b2cdc6480c1a8b86edf1777157f8f437de2166
         with: 
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -82,7 +82,7 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
         id: build-and-push
-        uses: docker/build-push-action@2a53c6ccda456d31fb62eedc658aae06e238b7bd
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -97,7 +97,7 @@ jobs:
     # 2nd image name is for DockerHub image
       - name: Extract Docker metadata - alpine
         id: meta-alpine
-        uses: docker/metadata-action@f7b4ed12385588c3f9bc252f0a2b520d83b52d48
+        uses: docker/metadata-action@70b2cdc6480c1a8b86edf1777157f8f437de2166
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -107,7 +107,7 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image - alpine
         id: build-and-push-alpine
-        uses: docker/build-push-action@2a53c6ccda456d31fb62eedc658aae06e238b7bd
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           context: .
           target: alpine-release
