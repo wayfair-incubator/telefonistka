@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/wayfair-incubator/telefonistka/internal/pkg/argocd"
 )
 
 func TestGenerateSafePromotionBranchName(t *testing.T) {
@@ -291,6 +292,59 @@ func TestGhPrClientDetailsGetBlameURLPrefix(t *testing.T) {
 		ghPrClientDetails := &GhPrClientDetails{Owner: tc.Owner, Repo: tc.Repo}
 		blameURLPrefix := ghPrClientDetails.getBlameURLPrefix()
 		assert.Equal(t, tc.ExpectURL, blameURLPrefix)
+	}
+}
+
+func TestShouldSyncBranchCheckBoxBeDisplayed(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		componentPathList            []string
+		allowSyncfromBranchPathRegex string
+		diffOfChangedComponents      []argocd.DiffResult
+		expected                     bool
+	}{
+		"New App": {
+			componentPathList:            []string{"workspace/app1"},
+			allowSyncfromBranchPathRegex: `^workspace/.*$`,
+			diffOfChangedComponents: []argocd.DiffResult{
+				{
+					AppWasTemporarilyCreated: true,
+					ComponentPath:            "workspace/app1",
+				},
+			},
+			expected: false,
+		},
+		"Existing App": {
+			componentPathList:            []string{"workspace/app1"},
+			allowSyncfromBranchPathRegex: `^workspace/.*$`,
+			diffOfChangedComponents: []argocd.DiffResult{
+				{
+					AppWasTemporarilyCreated: false,
+					ComponentPath:            "workspace/app1",
+				},
+			},
+			expected: true,
+		},
+		"Mixed New and Existing Apps": {
+			componentPathList:            []string{"workspace/app1", "workspace/app2"},
+			allowSyncfromBranchPathRegex: `^workspace/.*$`,
+			diffOfChangedComponents: []argocd.DiffResult{
+				{
+					AppWasTemporarilyCreated: false,
+					ComponentPath:            "workspace/app1",
+				},
+				{
+					AppWasTemporarilyCreated: true,
+					ComponentPath:            "workspace/app2",
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for i, tc := range tests {
+		result := shouldSyncBranchCheckBoxBeDisplayed(tc.componentPathList, tc.allowSyncfromBranchPathRegex, tc.diffOfChangedComponents)
+		assert.Equal(t, tc.expected, result, i)
 	}
 }
 
