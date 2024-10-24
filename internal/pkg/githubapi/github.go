@@ -837,7 +837,7 @@ func (p *GhPrClientDetails) ToggleCommitStatus(context string, user string) erro
 
 func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 	// TODO change all these values
-	context := "telefonistka"
+	tcontext := "telefonistka"
 	avatarURL := "https://avatars.githubusercontent.com/u/1616153?s=64"
 	description := "Telefonistka GitOps Bot"
 	targetURL := commitStatusTargetURL(time.Now())
@@ -846,11 +846,17 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 		TargetURL:   &targetURL,
 		Description: &description,
 		State:       &state,
-		Context:     &context,
+		Context:     &tcontext,
 		AvatarURL:   &avatarURL,
 	}
 	ghPrClientDetails.PrLogger.Debugf("Setting commit %s status to %s", ghPrClientDetails.PrSHA, state)
-	_, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.CreateStatus(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrSHA, commitStatus)
+
+	// use a separate context to avoid event processing timeout to cause
+	// failures in updating the commit status
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	_, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.CreateStatus(ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrSHA, commitStatus)
 	prom.InstrumentGhCall(resp)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to set commit status: err=%s\n%v", err, resp)
