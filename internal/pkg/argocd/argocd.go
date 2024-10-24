@@ -474,7 +474,7 @@ func generateDiffOfAComponent(ctx context.Context, commentDiff bool, componentPa
 		app, err := ac.app.Get(ctx, &appNameQuery)
 		if err != nil {
 			componentDiffResult.DiffError = err
-			log.Errorf("Error getting app(HardRefresh) %s: %v", app.Name, err)
+			log.Errorf("Error getting app(HardRefresh) %v: %v", appNameQuery.Name, err)
 			return componentDiffResult
 		}
 		log.Debugf("Got ArgoCD app %s", app.Name)
