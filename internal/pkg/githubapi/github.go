@@ -342,7 +342,7 @@ func ReciveEventFile(eventType string, eventFilePath string, mainGhClientCache *
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("X-GitHub-Event", eventType)
 
-	handleEvent(eventPayloadInterface, mainGhClientCache, prApproverGhClientCache, r, payload, eventType)
+	handleEvent(eventPayloadInterface, mainGhClientCache, prApproverGhClientCache, r, payload)
 }
 
 // ReciveWebhook is the main entry point for the webhook handling it starts parases the webhook payload and start a thread to handle the event success/failure are dependant on the payload parsing only
@@ -363,11 +363,11 @@ func ReciveWebhook(r *http.Request, mainGhClientCache *lru.Cache[string, GhClien
 	}
 	prom.InstrumentWebhookHit("successful")
 
-	go handleEvent(eventPayloadInterface, mainGhClientCache, prApproverGhClientCache, r, payload, eventType)
+	go handleEvent(eventPayloadInterface, mainGhClientCache, prApproverGhClientCache, r, payload)
 	return nil
 }
 
-func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair], r *http.Request, payload []byte, eventType string) {
+func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache[string, GhClientPair], prApproverGhClientCache *lru.Cache[string, GhClientPair], r *http.Request, payload []byte) {
 	// We don't use the request context as it might have a short deadline and we don't want to stop event handling based on that
 	// But we do want to stop the event handling after a certain point, so:
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -375,10 +375,11 @@ func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache
 	var mainGithubClientPair GhClientPair
 	var approverGithubClientPair GhClientPair
 
+	log.Infof("Handling event type %T", eventPayloadInterface)
+
 	switch eventPayload := eventPayloadInterface.(type) {
 	case *github.PushEvent:
 		// this is a commit push, do something with it?
-		log.Infoln("is PushEvent")
 		repoOwner := *eventPayload.Repo.Owner.Login
 		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
@@ -400,8 +401,9 @@ func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache
 		log.Infof("is PullRequestEvent(%s)", *eventPayload.Action)
 
 		prLogger := log.WithFields(log.Fields{
-			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
-			"prNumber": *eventPayload.PullRequest.Number,
+			"repo":       *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
+			"prNumber":   *eventPayload.PullRequest.Number,
+			"event_type": "pr",
 		})
 
 		repoOwner := *eventPayload.Repo.Owner.Login
@@ -430,10 +432,10 @@ func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache
 		mainGithubClientPair.GetAndCache(mainGhClientCache, "GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY_PATH", "GITHUB_OAUTH_TOKEN", repoOwner, ctx)
 
 		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
-		log.Infof("Actionable event type %s\n", eventType)
 		prLogger := log.WithFields(log.Fields{
-			"repo":     *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
-			"prNumber": *eventPayload.Issue.Number,
+			"repo":       *eventPayload.Repo.Owner.Login + "/" + *eventPayload.Repo.Name,
+			"prNumber":   *eventPayload.Issue.Number,
+			"event_type": "issue_comment",
 		})
 		// Ignore comment events sent by the bot (this is about who trigger the event not who wrote the comment)
 		if *eventPayload.Sender.Login != botIdentity {
@@ -453,7 +455,6 @@ func handleEvent(eventPayloadInterface interface{}, mainGhClientCache *lru.Cache
 		}
 
 	default:
-		log.Infof("Non-actionable event type %s", eventType)
 		return
 	}
 }
