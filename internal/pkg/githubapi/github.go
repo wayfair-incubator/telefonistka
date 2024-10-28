@@ -198,7 +198,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 					}
 					// If the PR is a promotion PR and the diff is empty, we can auto-merge it
 					// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
-					if DoesPrHasLabel(*eventPayload, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
+					if DoesPrHasLabel(eventPayload.PullRequest.Labels, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
 						ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
 						err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
 						if err != nil {
@@ -239,7 +239,7 @@ func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPr
 			prHandleError = err
 			ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
 		}
-	} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(*eventPayload, "show-plan") {
+	} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(eventPayload.PullRequest.Labels, "show-plan") {
 		SetCommitStatus(ghPrClientDetails, "pending")
 		wasCommitStatusSet = true
 		ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
@@ -785,15 +785,13 @@ func (p GhPrClientDetails) CommentOnPr(commentBody string) error {
 	return err
 }
 
-func DoesPrHasLabel(eventPayload github.PullRequestEvent, name string) bool {
-	result := false
-	for _, prLabel := range eventPayload.PullRequest.Labels {
-		if *prLabel.Name == name {
-			result = true
-			break
+func DoesPrHasLabel(labels []*github.Label, name string) bool {
+	for _, l := range labels {
+		if *l.Name == name {
+			return true
 		}
 	}
-	return result
+	return false
 }
 
 func (p *GhPrClientDetails) ToggleCommitStatus(context string, user string) error {
