@@ -128,132 +128,161 @@ func shouldSyncBranchCheckBoxBeDisplayed(componentPathList []string, allowSyncfr
 }
 
 func HandlePREvent(eventPayload *github.PullRequestEvent, ghPrClientDetails GhPrClientDetails, mainGithubClientPair GhClientPair, approverGithubClientPair GhClientPair, ctx context.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			ghPrClientDetails.PrLogger.Errorf("Recovered: %v", r)
+		}
+	}()
+
 	ghPrClientDetails.getPrMetadata(eventPayload.PullRequest.GetBody())
-	// wasCommitStatusSet and the placement of SetCommitStatus in the flow is used to ensure an API call is only made where it needed
-	wasCommitStatusSet := false
 
-	var prHandleError error
+	stat, ok := eventToHandle(eventPayload)
+	if !ok {
+		// nothing to do
+		return
+	}
 
+	SetCommitStatus(ghPrClientDetails, "pending")
+
+	var err error
+
+	defer func() {
+		if err != nil {
+			SetCommitStatus(ghPrClientDetails, "error")
+			return
+		}
+		SetCommitStatus(ghPrClientDetails, "success")
+	}()
+
+	switch stat {
+	case "merged":
+		err = handleMergedPrEvent(ghPrClientDetails, approverGithubClientPair.v3Client)
+	case "changed":
+		err = handleChangedPREvent(ctx, mainGithubClientPair, ghPrClientDetails, eventPayload)
+	case "show-plan":
+		err = handleShowPlanPREvent(ctx, ghPrClientDetails, eventPayload)
+	}
+
+	if err != nil {
+		ghPrClientDetails.PrLogger.Errorf("Handling of PR event failed: err=%s\n", err)
+	}
+}
+
+// eventToHandle returns the event to be handled, translated from a Github
+// world into the Telefonistka world. If no event should be handled, ok is
+// false.
+func eventToHandle(eventPayload *github.PullRequestEvent) (event string, ok bool) {
+	switch {
+	case *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged:
+		return "merged", true
+	case *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize":
+		return "changed", true
+	case *eventPayload.Action == "labeled" && DoesPrHasLabel(eventPayload.PullRequest.Labels, "show-plan"):
+		return "show-plan", true
+	default:
+		return "", false
+	}
+}
+
+func handleShowPlanPREvent(ctx context.Context, ghPrClientDetails GhPrClientDetails, eventPayload *github.PullRequestEvent) error {
+	ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
 	}
+	promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, *eventPayload.PullRequest.Head.Ref)
+	commentPlanInPR(ghPrClientDetails, promotions)
+	return nil
+}
 
-	if *eventPayload.Action == "closed" && *eventPayload.PullRequest.Merged {
-		SetCommitStatus(ghPrClientDetails, "pending")
-		wasCommitStatusSet = true
-		err := handleMergedPrEvent(ghPrClientDetails, approverGithubClientPair.v3Client)
+func handleChangedPREvent(ctx context.Context, mainGithubClientPair GhClientPair, ghPrClientDetails GhPrClientDetails, eventPayload *github.PullRequestEvent) error {
+	botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
+	err := MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
+	if err != nil {
+		return fmt.Errorf("minimizing stale PR comments: %w", err)
+	}
+	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
+	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
+	if err != nil {
+		ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
+	}
+	if config.Argocd.CommentDiffonPR {
+		componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
 		if err != nil {
-			prHandleError = err
-			ghPrClientDetails.PrLogger.Errorf("Handling of merged PR failed: err=%s\n", err)
+			return fmt.Errorf("generate list of changed components: %w", err)
 		}
-	} else if *eventPayload.Action == "opened" || *eventPayload.Action == "reopened" || *eventPayload.Action == "synchronize" {
-		SetCommitStatus(ghPrClientDetails, "pending")
-		wasCommitStatusSet = true
-		botIdentity, _ := GetBotGhIdentity(mainGithubClientPair.v4Client, ctx)
-		err = MimizeStalePrComments(ghPrClientDetails, mainGithubClientPair.v4Client, botIdentity)
-		if err != nil {
-			prHandleError = err
-			ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
-		}
-		if config.Argocd.CommentDiffonPR {
-			componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
+
+		// Building a map component's path and a boolean value that indicates if we should diff it not.
+		// I'm avoiding doing this in the ArgoCD package to avoid circular dependencies and keep package scope clean
+		componentsToDiff := map[string]bool{}
+		for _, componentPath := range componentPathList {
+			c, err := getComponentConfig(ghPrClientDetails, componentPath, ghPrClientDetails.Ref)
 			if err != nil {
-				prHandleError = err
-				ghPrClientDetails.PrLogger.Errorf("Failed to get list of changed components: err=%s\n", err)
-			}
-
-			// Building a map component's path and a boolean value that indicates if we should diff it not.
-			// I'm avoiding doing this in the ArgoCD package to avoid circular dependencies and keep package scope clean
-			componentsToDiff := map[string]bool{}
-			for _, componentPath := range componentPathList {
-				c, err := getComponentConfig(ghPrClientDetails, componentPath, ghPrClientDetails.Ref)
-				if err != nil {
-					prHandleError = fmt.Errorf("Failed to get component config(%s):  err=%s\n", componentPath, err)
-					ghPrClientDetails.PrLogger.Error(prHandleError)
+				return fmt.Errorf("get component (%s) config:  %w", componentPath, err)
+			} else {
+				if c.DisableArgoCDDiff {
+					componentsToDiff[componentPath] = false
+					ghPrClientDetails.PrLogger.Debugf("ArgoCD diff disabled for %s\n", componentPath)
 				} else {
-					if c.DisableArgoCDDiff {
-						componentsToDiff[componentPath] = false
-						ghPrClientDetails.PrLogger.Debugf("ArgoCD diff disabled for %s\n", componentPath)
-					} else {
-						componentsToDiff[componentPath] = true
-					}
+					componentsToDiff[componentPath] = true
 				}
-			}
-			hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery, config.Argocd.CreateTempAppObjectFroNewApps)
-			if err != nil {
-				prHandleError = err
-				ghPrClientDetails.PrLogger.Errorf("Failed to get ArgoCD diff information: err=%s\n", err)
-			} else {
-				ghPrClientDetails.PrLogger.Debugf("Successfully got ArgoCD diff(comparing live objects against objects rendered form git ref %s)", ghPrClientDetails.Ref)
-				if !hasComponentDiffErrors && !hasComponentDiff {
-					ghPrClientDetails.PrLogger.Debugf("ArgoCD diff is empty, this PR will not change cluster state\n")
-					prLables, resp, err := ghPrClientDetails.GhClientPair.v3Client.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *eventPayload.PullRequest.Number, []string{"noop"})
-					prom.InstrumentGhCall(resp)
-					if err != nil {
-						ghPrClientDetails.PrLogger.Errorf("Could not label GitHub PR: err=%s\n%v\n", err, resp)
-					} else {
-						ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", *eventPayload.PullRequest.Number, prLables)
-					}
-					// If the PR is a promotion PR and the diff is empty, we can auto-merge it
-					// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
-					if DoesPrHasLabel(eventPayload.PullRequest.Labels, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
-						ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
-						err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
-						if err != nil {
-							prHandleError = err
-							ghPrClientDetails.PrLogger.Errorf("PR auto merge failed: err=%v", err)
-						}
-					}
-				}
-			}
-
-			if len(diffOfChangedComponents) > 0 {
-				diffCommentData := DiffCommentData{
-					DiffOfChangedComponents: diffOfChangedComponents,
-					BranchName:              ghPrClientDetails.Ref,
-				}
-
-				diffCommentData.DisplaySyncBranchCheckBox = shouldSyncBranchCheckBoxBeDisplayed(componentPathList, config.Argocd.AllowSyncfromBranchPathRegex, diffOfChangedComponents)
-
-				comments, err := generateArgoCdDiffComments(diffCommentData, githubCommentMaxSize)
-				if err != nil {
-					prHandleError = err
-					ghPrClientDetails.PrLogger.Errorf("Failed to comment ArgoCD diff: err=%s\n", err)
-				}
-				for _, comment := range comments {
-					err = commentPR(ghPrClientDetails, comment)
-					if err != nil {
-						prHandleError = err
-						ghPrClientDetails.PrLogger.Errorf("Failed to comment on PR: err=%s\n", err)
-					}
-				}
-			} else {
-				ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")
 			}
 		}
-		ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
-		err = DetectDrift(ghPrClientDetails)
+		hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery, config.Argocd.CreateTempAppObjectFroNewApps)
 		if err != nil {
-			prHandleError = err
-			ghPrClientDetails.PrLogger.Errorf("Drift detection failed: err=%s\n", err)
-		}
-	} else if *eventPayload.Action == "labeled" && DoesPrHasLabel(eventPayload.PullRequest.Labels, "show-plan") {
-		SetCommitStatus(ghPrClientDetails, "pending")
-		wasCommitStatusSet = true
-		ghPrClientDetails.PrLogger.Infoln("Found show-plan label, posting plan")
-		promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, *eventPayload.PullRequest.Head.Ref)
-		commentPlanInPR(ghPrClientDetails, promotions)
-	}
-
-	if wasCommitStatusSet {
-		if prHandleError == nil {
-			SetCommitStatus(ghPrClientDetails, "success")
+			return fmt.Errorf("getting diff information: %w", err)
 		} else {
-			SetCommitStatus(ghPrClientDetails, "error")
+			ghPrClientDetails.PrLogger.Debugf("Successfully got ArgoCD diff(comparing live objects against objects rendered form git ref %s)", ghPrClientDetails.Ref)
+			if !hasComponentDiffErrors && !hasComponentDiff {
+				ghPrClientDetails.PrLogger.Debugf("ArgoCD diff is empty, this PR will not change cluster state\n")
+				prLables, resp, err := ghPrClientDetails.GhClientPair.v3Client.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *eventPayload.PullRequest.Number, []string{"noop"})
+				prom.InstrumentGhCall(resp)
+				if err != nil {
+					ghPrClientDetails.PrLogger.Errorf("Could not label GitHub PR: err=%s\n%v\n", err, resp)
+				} else {
+					ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", *eventPayload.PullRequest.Number, prLables)
+				}
+				// If the PR is a promotion PR and the diff is empty, we can auto-merge it
+				// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
+				if DoesPrHasLabel(eventPayload.PullRequest.Labels, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
+					ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
+					err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
+					if err != nil {
+						return fmt.Errorf("PR auto merge: %w", err)
+					}
+				}
+			}
+		}
+
+		if len(diffOfChangedComponents) > 0 {
+			diffCommentData := DiffCommentData{
+				DiffOfChangedComponents: diffOfChangedComponents,
+				BranchName:              ghPrClientDetails.Ref,
+			}
+
+			diffCommentData.DisplaySyncBranchCheckBox = shouldSyncBranchCheckBoxBeDisplayed(componentPathList, config.Argocd.AllowSyncfromBranchPathRegex, diffOfChangedComponents)
+
+			comments, err := generateArgoCdDiffComments(diffCommentData, githubCommentMaxSize)
+			if err != nil {
+				return fmt.Errorf("generate diff comment: %w", err)
+			}
+			for _, comment := range comments {
+				err = commentPR(ghPrClientDetails, comment)
+				if err != nil {
+					return fmt.Errorf("commenting on PR: %w", err)
+				}
+			}
+		} else {
+			ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")
 		}
 	}
+	ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
+	err = DetectDrift(ghPrClientDetails)
+	if err != nil {
+		return fmt.Errorf("detecting drift: %w", err)
+	}
+	return nil
 }
 
 func generateArgoCdDiffComments(diffCommentData DiffCommentData, githubCommentMaxSize int) (comments []string, err error) {
