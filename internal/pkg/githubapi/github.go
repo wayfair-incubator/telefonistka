@@ -220,37 +220,34 @@ func handleChangedPREvent(ctx context.Context, mainGithubClientPair GhClientPair
 			c, err := getComponentConfig(ghPrClientDetails, componentPath, ghPrClientDetails.Ref)
 			if err != nil {
 				return fmt.Errorf("get component (%s) config:  %w", componentPath, err)
-			} else {
-				if c.DisableArgoCDDiff {
-					componentsToDiff[componentPath] = false
-					ghPrClientDetails.PrLogger.Debugf("ArgoCD diff disabled for %s\n", componentPath)
-				} else {
-					componentsToDiff[componentPath] = true
-				}
+			}
+			componentsToDiff[componentPath] = true
+			if c.DisableArgoCDDiff {
+				componentsToDiff[componentPath] = false
+				ghPrClientDetails.PrLogger.Debugf("ArgoCD diff disabled for %s\n", componentPath)
 			}
 		}
 		hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery, config.Argocd.CreateTempAppObjectFroNewApps)
 		if err != nil {
 			return fmt.Errorf("getting diff information: %w", err)
-		} else {
-			ghPrClientDetails.PrLogger.Debugf("Successfully got ArgoCD diff(comparing live objects against objects rendered form git ref %s)", ghPrClientDetails.Ref)
-			if !hasComponentDiffErrors && !hasComponentDiff {
-				ghPrClientDetails.PrLogger.Debugf("ArgoCD diff is empty, this PR will not change cluster state\n")
-				prLables, resp, err := ghPrClientDetails.GhClientPair.v3Client.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *eventPayload.PullRequest.Number, []string{"noop"})
-				prom.InstrumentGhCall(resp)
+		}
+		ghPrClientDetails.PrLogger.Debugf("Successfully got ArgoCD diff(comparing live objects against objects rendered form git ref %s)", ghPrClientDetails.Ref)
+		if !hasComponentDiffErrors && !hasComponentDiff {
+			ghPrClientDetails.PrLogger.Debugf("ArgoCD diff is empty, this PR will not change cluster state\n")
+			prLables, resp, err := ghPrClientDetails.GhClientPair.v3Client.Issues.AddLabelsToIssue(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *eventPayload.PullRequest.Number, []string{"noop"})
+			prom.InstrumentGhCall(resp)
+			if err != nil {
+				ghPrClientDetails.PrLogger.Errorf("Could not label GitHub PR: err=%s\n%v\n", err, resp)
+			} else {
+				ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", *eventPayload.PullRequest.Number, prLables)
+			}
+			// If the PR is a promotion PR and the diff is empty, we can auto-merge it
+			// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
+			if DoesPrHasLabel(eventPayload.PullRequest.Labels, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
+				ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
+				err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
 				if err != nil {
-					ghPrClientDetails.PrLogger.Errorf("Could not label GitHub PR: err=%s\n%v\n", err, resp)
-				} else {
-					ghPrClientDetails.PrLogger.Debugf("PR %v labeled\n%+v", *eventPayload.PullRequest.Number, prLables)
-				}
-				// If the PR is a promotion PR and the diff is empty, we can auto-merge it
-				// "len(componentPathList) > 0"  validates we are not auto-merging a PR that we failed to understand which apps it affects
-				if DoesPrHasLabel(eventPayload.PullRequest.Labels, "promotion") && config.Argocd.AutoMergeNoDiffPRs && len(componentPathList) > 0 {
-					ghPrClientDetails.PrLogger.Infof("Auto-merging (no diff) PR %d", *eventPayload.PullRequest.Number)
-					err := MergePr(ghPrClientDetails, eventPayload.PullRequest.Number)
-					if err != nil {
-						return fmt.Errorf("PR auto merge: %w", err)
-					}
+					return fmt.Errorf("PR auto merge: %w", err)
 				}
 			}
 		}
