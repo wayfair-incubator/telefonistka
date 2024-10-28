@@ -51,6 +51,7 @@ func contains(s []string, str string) bool {
 }
 
 func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
+	ghPrClientDetails.PrLogger.Debugln("Checking for Drift")
 	if ghPrClientDetails.Ctx.Err() != nil {
 		return ghPrClientDetails.Ctx.Err()
 	}

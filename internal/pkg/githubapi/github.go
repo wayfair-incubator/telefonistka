@@ -277,7 +277,6 @@ func handleChangedPREvent(ctx context.Context, mainGithubClientPair GhClientPair
 			ghPrClientDetails.PrLogger.Debugf("Diff not find affected ArogCD apps")
 		}
 	}
-	ghPrClientDetails.PrLogger.Infoln("Checking for Drift")
 	err = DetectDrift(ghPrClientDetails)
 	if err != nil {
 		return fmt.Errorf("detecting drift: %w", err)
