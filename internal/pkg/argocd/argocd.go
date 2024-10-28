@@ -58,6 +58,7 @@ type DiffResult struct {
 	HasDiff                  bool
 	DiffError                error
 	AppWasTemporarilyCreated bool
+	AppSyncedFromPRBranch    bool
 }
 
 // Mostly copied from  https://github.com/argoproj/argo-cd/blob/4f6a8dce80f0accef7ed3b5510e178a6b398b331/cmd/argocd/commands/app.go#L1255C6-L1338
@@ -483,7 +484,9 @@ func generateDiffOfAComponent(ctx context.Context, commentDiff bool, componentPa
 	componentDiffResult.ArgoCdAppURL = fmt.Sprintf("%s/applications/%s", argoSettings.URL, app.Name)
 
 	if app.Spec.Source.TargetRevision == prBranch && app.Spec.SyncPolicy.Automated != nil {
-		componentDiffResult.DiffError = fmt.Errorf("App %s already has revision %s as Source Target Revision and autosync is on, skipping diff calculation", app.Name, prBranch)
+		componentDiffResult.DiffError = nil
+		componentDiffResult.AppSyncedFromPRBranch = true
+
 		return componentDiffResult
 	}
 

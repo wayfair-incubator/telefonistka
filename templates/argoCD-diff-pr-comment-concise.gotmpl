@@ -26,6 +26,11 @@ Diff of ArgoCD applications(⚠️ concise view, full diff didn't fit GH comment
 
 </details>
 {{- else }}
+{{ if  $appDiffResult.AppSyncedFromPRBranch }}
+> [!NOTE]
+> The app already has this branch set as the source target revision, and autosync is enabled. Diff calculation was skipped.
+{{- else }}
+
 No diff 🤷
 {{- end}}
 {{if $appDiffResult.AppWasTemporarilyCreated }}
@@ -34,6 +39,7 @@ No diff 🤷
 > It will not be present in ArgoCD UI for more than a few seconds.
 {{- end}}
 
+{{- end }}
 {{- end }}
 
 {{- end }}

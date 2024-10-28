@@ -314,6 +314,17 @@ func TestShouldSyncBranchCheckBoxBeDisplayed(t *testing.T) {
 			},
 			expected: false,
 		},
+		"App synced from branch": {
+			componentPathList:            []string{"workspace/app1"},
+			allowSyncfromBranchPathRegex: `^workspace/.*$`,
+			diffOfChangedComponents: []argocd.DiffResult{
+				{
+					AppSyncedFromPRBranch: true,
+					ComponentPath:         "workspace/app1",
+				},
+			},
+			expected: false,
+		},
 		"Existing App": {
 			componentPathList:            []string{"workspace/app1"},
 			allowSyncfromBranchPathRegex: `^workspace/.*$`,
@@ -326,7 +337,7 @@ func TestShouldSyncBranchCheckBoxBeDisplayed(t *testing.T) {
 			expected: true,
 		},
 		"Mixed New and Existing Apps": {
-			componentPathList:            []string{"workspace/app1", "workspace/app2"},
+			componentPathList:            []string{"workspace/app1", "workspace/app2", "workspace/app3"},
 			allowSyncfromBranchPathRegex: `^workspace/.*$`,
 			diffOfChangedComponents: []argocd.DiffResult{
 				{
@@ -336,6 +347,10 @@ func TestShouldSyncBranchCheckBoxBeDisplayed(t *testing.T) {
 				{
 					AppWasTemporarilyCreated: true,
 					ComponentPath:            "workspace/app2",
+				},
+				{
+					AppSyncedFromPRBranch: true,
+					ComponentPath:         "workspace/app3",
 				},
 			},
 			expected: true,

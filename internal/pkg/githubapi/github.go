@@ -115,10 +115,11 @@ func shouldSyncBranchCheckBoxBeDisplayed(componentPathList []string, allowSyncfr
 		if !isSyncFromBranchAllowedForThisPath(allowSyncfromBranchPathRegex, componentPath) {
 			continue
 		}
+
 		// Then we check the relevant app is not new, temporary app.
 		// We don't support syncing new apps from branches
 		for _, diffOfChangedComponent := range diffOfChangedComponents {
-			if diffOfChangedComponent.ComponentPath == componentPath && !diffOfChangedComponent.AppWasTemporarilyCreated {
+			if diffOfChangedComponent.ComponentPath == componentPath && !diffOfChangedComponent.AppWasTemporarilyCreated && !diffOfChangedComponent.AppSyncedFromPRBranch {
 				return true
 			}
 		}
