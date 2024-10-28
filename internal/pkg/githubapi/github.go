@@ -75,11 +75,6 @@ func (pm prMetadata) serialize() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// var compressedPmJson []byte
-	// _, err = lz4.CompressBlock(pmJson, compressedPmJson, nil)
-	// if err != nil {
-	// return "", err
-	// }
 	return base64.StdEncoding.EncodeToString(pmJson), nil
 }
 
@@ -625,7 +620,6 @@ func handleMergedPrEvent(ghPrClientDetails GhPrClientDetails, prApproverGithubCl
 	// configBranch = default branch as the PR is closed at this and its branch deleted.
 	// If we'l ever want to generate this plan on an unmerged PR the PR branch (ghPrClientDetails.Ref) should be used
 	promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, defaultBranch)
-	// log.Infof("%+v", promotions)
 	if !config.DryRunMode {
 		for _, promotion := range promotions {
 			// TODO this whole part shouldn't be in main, but I need to refactor some circular dep's
@@ -791,10 +785,6 @@ func (pm *prMetadata) DeSerialize(s string) error {
 	if err != nil {
 		return err
 	}
-	// _, err = lz4.UncompressBlock(decoded, unCompressedPmJson)
-	// if err != nil {
-	// return err
-	// }
 	err = json.Unmarshal(decoded, pm)
 	return err
 }
@@ -1225,19 +1215,6 @@ func createPrObject(ghPrClientDetails GhPrClientDetails, newBranchRef string, ne
 	} else {
 		ghPrClientDetails.PrLogger.Debugf(" %s was set as assignee on PR", assignee)
 	}
-
-	// reviewers := github.ReviewersRequest{
-	// Reviewers: []string{"SA-k8s-pr-approver-bot"}, // TODO remove hardcoding
-	// }
-	//
-	// _, resp, err = ghPrClientDetails.Ghclient.PullRequests.RequestReviewers(ghPrClientDetails.Ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, *pull.Number, reviewers)
-	// prom.InstrumentGhCall(resp)
-	// if err != nil {
-	// ghPrClientDetails.PrLogger.Errorf("Could not set reviewer on pr: err=%s\n%v\n", err, resp)
-	// return pull, err
-	// } else {
-	// ghPrClientDetails.PrLogger.Debugf("PR reviewer set.\n%+v", reviewers)
-	// }
 
 	return pull, nil // TODO
 }
