@@ -189,7 +189,7 @@ func handleShowPlanPREvent(ctx context.Context, ghPrClientDetails GhPrClientDeta
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
+		return fmt.Errorf("get in-repo configuration: %w", err)
 	}
 	promotions, _ := GeneratePromotionPlan(ghPrClientDetails, config, *eventPayload.PullRequest.Head.Ref)
 	commentPlanInPR(ghPrClientDetails, promotions)
@@ -205,7 +205,7 @@ func handleChangedPREvent(ctx context.Context, mainGithubClientPair GhClientPair
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
 	if err != nil {
-		ghPrClientDetails.PrLogger.Infof("Couldn't get Telefonistka in-repo configuration: %v", err)
+		return fmt.Errorf("get in-repo configuration: %w", err)
 	}
 	if config.Argocd.CommentDiffonPR {
 		componentPathList, err := generateListOfChangedComponentPaths(ghPrClientDetails, config)
