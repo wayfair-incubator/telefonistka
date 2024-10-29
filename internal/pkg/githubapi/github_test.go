@@ -395,15 +395,12 @@ func TestCommitStatusTargetURL(t *testing.T) {
 
 			expectedURL := tc.expectedURL
 			if tc.templateFile != "" {
-				os.Setenv("CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH", tc.templateFile)
-				defer os.Unsetenv("CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH")
-
 				if tc.validTemplate {
 					expectedURL = fmt.Sprintf(expectedURL, now.UnixMilli(), now.Add(-10*time.Minute).UnixMilli())
 				}
 			}
 
-			result := commitStatusTargetURL(now)
+			result := commitStatusTargetURL(now, tc.templateFile)
 			if result != expectedURL {
 				t.Errorf("%s: Expected URL to be %q, got %q", name, expectedURL, result)
 			}

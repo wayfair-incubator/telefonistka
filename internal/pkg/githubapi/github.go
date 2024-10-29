@@ -854,7 +854,9 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 	tcontext := "telefonistka"
 	avatarURL := "https://avatars.githubusercontent.com/u/1616153?s=64"
 	description := "Telefonistka GitOps Bot"
-	targetURL := commitStatusTargetURL(time.Now())
+	tmplFile := os.Getenv("CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH")
+
+	targetURL := commitStatusTargetURL(time.Now(), tmplFile)
 
 	commitStatus := &github.RepoStatus{
 		TargetURL:   &targetURL,
@@ -1273,10 +1275,9 @@ func GetFileContent(ghPrClientDetails GhPrClientDetails, branch string, filePath
 // If the template file is not found or an error occurs during template execution,
 // it returns a default URL.
 // passed parameter commitTime can be used in the template as .CommitTime
-func commitStatusTargetURL(commitTime time.Time) string {
+func commitStatusTargetURL(commitTime time.Time, tmplFile string) string {
 	const targetURL string = "https://github.com/wayfair-incubator/telefonistka"
 
-	tmplFile := os.Getenv("CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH")
 	tmplName := filepath.Base(tmplFile)
 
 	// dynamic parameters to be used in the template
