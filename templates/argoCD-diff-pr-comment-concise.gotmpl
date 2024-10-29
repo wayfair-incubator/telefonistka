@@ -35,8 +35,9 @@ No diff 🤷
 {{- end}}
 {{if $appDiffResult.AppWasTemporarilyCreated }}
 > [!NOTE]
-> This PR appears to create this new application, Telefonistka has **temporarly** created an ArgoCD app object for it just to render its manifests.
-> It will not be present in ArgoCD UI for more than a few seconds.
+> Telefonistka has temporarily created an ArgoCD app object to render manifest previews.
+Please be aware:
+> * The app will only appear in the ArgoCD UI for a few seconds.
 {{- end}}
 
 {{- end }}
