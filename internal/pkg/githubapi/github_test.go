@@ -235,6 +235,7 @@ func readJSONFromFile(t *testing.T, filename string, data interface{}) {
 func TestPrBody(t *testing.T) {
 	t.Parallel()
 	keys := []int{1, 2, 3}
+	promotionSkipPaths := map[string]bool{"targetPath3": true}
 	newPrMetadata := prMetadata{
 		// note: "targetPath3" is missing from the list of promoted paths, so it should not
 		// be included in the new PR body.
@@ -254,8 +255,35 @@ func TestPrBody(t *testing.T) {
 			},
 		},
 	}
-	newPrBody := prBody(keys, newPrMetadata, "")
+	newPrBody := prBody(keys, newPrMetadata, "", promotionSkipPaths)
 	expectedPrBody, err := os.ReadFile("testdata/pr_body.golden.md")
+	if err != nil {
+		t.Fatalf("Error loading golden file: %s", err)
+	}
+	assert.Equal(t, string(expectedPrBody), newPrBody)
+}
+
+func TestPrBodyMultiComponent(t *testing.T) {
+	t.Parallel()
+	keys := []int{1, 2}
+	promotionSkipPaths := map[string]bool{}
+	newPrMetadata := prMetadata{
+		// note: "targetPath3" is missing from the list of promoted paths, so it should not
+		// be included in the new PR body.
+		PromotedPaths: []string{"targetPath1/component1", "targetPath1/component2", "targetPath2/component1"},
+		PreviousPromotionMetadata: map[int]promotionInstanceMetaData{
+			1: {
+				SourcePath:  "sourcePath1",
+				TargetPaths: []string{"targetPath1"},
+			},
+			2: {
+				SourcePath:  "sourcePath2",
+				TargetPaths: []string{"targetPath2"},
+			},
+		},
+	}
+	newPrBody := prBody(keys, newPrMetadata, "", promotionSkipPaths)
+	expectedPrBody, err := os.ReadFile("testdata/pr_body_multi_component.golden.md")
 	if err != nil {
 		t.Fatalf("Error loading golden file: %s", err)
 	}
@@ -408,71 +436,66 @@ func TestCommitStatusTargetURL(t *testing.T) {
 	}
 }
 
-func Test_identifyCommonPaths(t *testing.T) {
+func Test_getPromotionSkipPaths(t *testing.T) {
 	t.Parallel()
 	type args struct {
-		promoPaths  []string
-		targetPaths []string
+		promotion PromotionInstance
 	}
 	tests := []struct {
 		name string
 		args args
-		want []string
+		want map[string]bool
 	}{
 		{
-			name: "same paths",
+			name: "No skip paths",
 			args: args{
-				promoPaths:  []string{"path1/component/path", "path2/component/path", "path3/component/path"},
-				targetPaths: []string{"path1", "path2", "path3"},
+				promotion: PromotionInstance{
+					Metadata: PromotionInstanceMetaData{
+						PerComponentSkippedTargetPaths: map[string][]string{},
+					},
+				},
 			},
-			want: []string{"path1", "path2", "path3"},
+			want: map[string]bool{},
 		},
 		{
-			name: "paths1 is empty",
+			name: "one skip path",
 			args: args{
-				promoPaths:  []string{},
-				targetPaths: []string{"path1", "path2", "path3"},
+				promotion: PromotionInstance{
+					Metadata: PromotionInstanceMetaData{
+						PerComponentSkippedTargetPaths: map[string][]string{
+							"component1": {"targetPath1", "targetPath2"},
+						},
+					},
+				},
 			},
-			want: nil,
+			want: map[string]bool{
+				"targetPath1": true,
+				"targetPath2": true,
+			},
 		},
 		{
-			name: "paths2 is empty",
+			name: "multiple skip path",
 			args: args{
-				promoPaths:  []string{"path1/component/some", "path2/some/other", "path3"},
-				targetPaths: []string{},
+				promotion: PromotionInstance{
+					Metadata: PromotionInstanceMetaData{
+						PerComponentSkippedTargetPaths: map[string][]string{
+							"component1": {"targetPath1", "targetPath2", "targetPath3"},
+							"component2": {"targetPath3"},
+							"component3": {"targetPath1", "targetPath2"},
+						},
+					},
+				},
 			},
-			want: nil,
-		},
-		{
-			name: "paths2 missing elements",
-			args: args{
-				promoPaths:  []string{"path1", "path2", "path3"},
-				targetPaths: []string{""},
+			want: map[string]bool{
+				"targetPath3": true,
 			},
-			want: nil,
-		},
-		{
-			name: "path1 missing elements",
-			args: args{
-				promoPaths:  []string{""},
-				targetPaths: []string{"path1", "path2"},
-			},
-			want: nil,
-		},
-		{
-			name: "path1 and path2 common elements",
-			args: args{
-				promoPaths:  []string{"path1/component/path", "path3/component/also"},
-				targetPaths: []string{"path1", "path2", "path3"},
-			},
-			want: []string{"path1", "path3"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := identifyCommonPaths(tt.args.promoPaths, tt.args.targetPaths)
-			assert.Equal(t, got, tt.want)
+			got := getPromotionSkipPaths(tt.args.promotion)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
