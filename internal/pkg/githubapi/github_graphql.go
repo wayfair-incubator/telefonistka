@@ -68,7 +68,7 @@ func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlCli
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
 	}
-	bi := githubv4.String(botIdentity)
+	bi := githubv4.String(strings.TrimSuffix(botIdentity, "[bot]"))
 	for _, prComment := range getCommentNodeIdsQuery.Repository.PullRequest.Comments.Edges {
 		if !prComment.Node.IsMinimized && prComment.Node.Author.Login == bi {
 			if strings.Contains(string(prComment.Node.Body), "<!-- telefonistka_tag -->") {
