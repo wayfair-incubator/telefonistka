@@ -172,7 +172,7 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func createArgoCdClients() (ac argoCdClients, err error) {
+func CreateArgoCdClients() (ac argoCdClients, err error) {
 	plaintext, _ := strconv.ParseBool(getEnv("ARGOCD_PLAINTEXT", "false"))
 	insecure, _ := strconv.ParseBool(getEnv("ARGOCD_INSECURE", "false"))
 
@@ -320,7 +320,7 @@ func findArgocdApp(ctx context.Context, componentPath string, repo string, appCl
 func SetArgoCDAppRevision(ctx context.Context, componentPath string, revision string, repo string, useSHALabelForArgoDicovery bool) error {
 	var foundApp *argoappv1.Application
 	var err error
-	ac, err := createArgoCdClients()
+	ac, err := CreateArgoCdClients()
 	if err != nil {
 		return fmt.Errorf("Error creating ArgoCD clients: %w", err)
 	}
@@ -461,7 +461,7 @@ func generateDiffOfAComponent(ctx context.Context, commentDiff bool, componentPa
 				componentDiffResult.AppWasTemporarilyCreated = true
 			}
 		} else {
-			componentDiffResult.DiffError = fmt.Errorf("No ArgoCD application found for component path %s(repo %s)", componentPath, repo)
+			componentDiffResult.DiffError = fmt.Errorf("no ArgoCD application found for component path %s(repo %s)", componentPath, repo)
 			return
 		}
 	} else {
@@ -472,7 +472,7 @@ func generateDiffOfAComponent(ctx context.Context, commentDiff bool, componentPa
 			Name:    &app.Name, // we expect only one app with this label and repo selectors
 			Refresh: &refreshType,
 		}
-		app, err := ac.app.Get(ctx, &appNameQuery)
+		app, err = ac.app.Get(ctx, &appNameQuery)
 		if err != nil {
 			componentDiffResult.DiffError = err
 			log.Errorf("Error getting app(HardRefresh) %v: %v", appNameQuery.Name, err)
@@ -544,26 +544,27 @@ func generateDiffOfAComponent(ctx context.Context, commentDiff bool, componentPa
 }
 
 // GenerateDiffOfChangedComponents generates diff of changed components
-func GenerateDiffOfChangedComponents(ctx context.Context, componentsToDiff map[string]bool, prBranch string, repo string, useSHALabelForArgoDicovery bool, createTempAppObjectFromNewApps bool) (hasComponentDiff bool, hasComponentDiffErrors bool, diffResults []DiffResult, err error) {
+func GenerateDiffOfChangedComponents(ctx context.Context, componentsToDiff map[string]bool, prBranch string, repo string, useSHALabelForArgoDicovery bool, createTempAppObjectFromNewApps bool, argoClients argoCdClients) (hasComponentDiff bool, hasComponentDiffErrors bool, diffResults []DiffResult, err error) {
 	hasComponentDiff = false
 	hasComponentDiffErrors = false
-	// env var should be centralized
-	ac, err := createArgoCdClients()
+
+	argoSettings, err := argoClients.setting.Get(ctx, &settings.SettingsQuery{})
 	if err != nil {
-		log.Errorf("Error creating ArgoCD clients: %v", err)
+		log.Errorf("error getting ArgoCD settings: %v", err)
 		return false, true, nil, err
 	}
 
-	argoSettings, err := ac.setting.Get(ctx, &settings.SettingsQuery{})
-	if err != nil {
-		log.Errorf("Error getting ArgoCD settings: %v", err)
-		return false, true, nil, err
-	}
-
+	diffResult := make(chan DiffResult)
 	for componentPath, shouldIDiff := range componentsToDiff {
-		currentDiffResult := generateDiffOfAComponent(ctx, shouldIDiff, componentPath, prBranch, repo, ac, argoSettings, useSHALabelForArgoDicovery, createTempAppObjectFromNewApps)
+		go func(componentPath string, shouldDiff bool) {
+			diffResult <- generateDiffOfAComponent(ctx, shouldIDiff, componentPath, prBranch, repo, argoClients, argoSettings, useSHALabelForArgoDicovery, createTempAppObjectFromNewApps)
+		}(componentPath, shouldIDiff)
+	}
+
+	for range componentsToDiff {
+		currentDiffResult := <-diffResult
 		if currentDiffResult.DiffError != nil {
-			log.Errorf("Error generating diff for component %s: %v", componentPath, currentDiffResult.DiffError)
+			log.Errorf("Error generating diff for component %s: %v", currentDiffResult.ComponentPath, currentDiffResult.DiffError)
 			hasComponentDiffErrors = true
 			err = currentDiffResult.DiffError
 		}
@@ -572,6 +573,5 @@ func GenerateDiffOfChangedComponents(ctx context.Context, componentsToDiff map[s
 		}
 		diffResults = append(diffResults, currentDiffResult)
 	}
-
 	return hasComponentDiff, hasComponentDiffErrors, diffResults, err
 }

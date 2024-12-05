@@ -224,7 +224,12 @@ func handleChangedPREvent(ctx context.Context, mainGithubClientPair GhClientPair
 				ghPrClientDetails.PrLogger.Debugf("ArgoCD diff disabled for %s\n", componentPath)
 			}
 		}
-		hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery, config.Argocd.CreateTempAppObjectFroNewApps)
+		argoClients, err := argocd.CreateArgoCdClients()
+		if err != nil {
+			return fmt.Errorf("error creating ArgoCD clients: %w", err)
+		}
+
+		hasComponentDiff, hasComponentDiffErrors, diffOfChangedComponents, err := argocd.GenerateDiffOfChangedComponents(ctx, componentsToDiff, ghPrClientDetails.Ref, ghPrClientDetails.RepoURL, config.Argocd.UseSHALabelForAppDiscovery, config.Argocd.CreateTempAppObjectFroNewApps, argoClients)
 		if err != nil {
 			return fmt.Errorf("getting diff information: %w", err)
 		}
