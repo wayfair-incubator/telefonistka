@@ -57,6 +57,8 @@ func serve() {
 	mainGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 	prApproverGhClientCache, _ := lru.New[string, githubapi.GhClientPair](128)
 
+	go githubapi.MainGhMetricsLoop(mainGhClientCache)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/webhook", handleWebhook(githubWebhookSecret, mainGhClientCache, prApproverGhClientCache))
 	mux.Handle("/metrics", promhttp.Handler())

@@ -881,6 +881,8 @@ func SetCommitStatus(ghPrClientDetails GhPrClientDetails, state string) {
 
 	_, resp, err := ghPrClientDetails.GhClientPair.v3Client.Repositories.CreateStatus(ctx, ghPrClientDetails.Owner, ghPrClientDetails.Repo, ghPrClientDetails.PrSHA, commitStatus)
 	prom.InstrumentGhCall(resp)
+	repoSlug := ghPrClientDetails.Owner + "/" + ghPrClientDetails.Repo
+	prom.IncCommitStatusUpdateCounter(repoSlug, state)
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to set commit status: err=%s\n%v", err, resp)
 	}
