@@ -261,7 +261,8 @@ func handleChangedPREvent(ctx context.Context, mainGithubClientPair GhClientPair
 			}
 
 			diffCommentData.DisplaySyncBranchCheckBox = shouldSyncBranchCheckBoxBeDisplayed(componentPathList, config.Argocd.AllowSyncfromBranchPathRegex, diffOfChangedComponents)
-
+			componentsToDiffJSON, _ := json.Marshal(componentsToDiff)
+			log.Infof("Generating ArgoCD Diff Comment for components: %+v, length of diff elements: %d", string(componentsToDiffJSON), len(diffCommentData.DiffOfChangedComponents))
 			comments, err := generateArgoCdDiffComments(diffCommentData, githubCommentMaxSize)
 			if err != nil {
 				return fmt.Errorf("generate diff comment: %w", err)
