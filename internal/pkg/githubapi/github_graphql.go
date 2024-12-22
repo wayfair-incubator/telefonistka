@@ -52,7 +52,7 @@ func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlCli
 	getCommentNodeIdsParams := map[string]interface{}{
 		"owner":    githubv4.String(ghPrClientDetails.Owner),
 		"repo":     githubv4.String(ghPrClientDetails.Repo),
-		"prNumber": githubv4.Int(ghPrClientDetails.PrNumber),
+		"prNumber": githubv4.Int(ghPrClientDetails.PrNumber), //nolint:gosec // G115: type mismatch between shurcooL/githubv4 and google/go-github. Number taken from latter for use in query using former.
 	}
 
 	var minimizeCommentMutation struct {
@@ -68,7 +68,7 @@ func MimizeStalePrComments(ghPrClientDetails GhPrClientDetails, githubGraphQlCli
 	if err != nil {
 		ghPrClientDetails.PrLogger.Errorf("Failed to minimize stale comments: err=%s\n", err)
 	}
-	bi := githubv4.String(botIdentity)
+	bi := githubv4.String(strings.TrimSuffix(botIdentity, "[bot]"))
 	for _, prComment := range getCommentNodeIdsQuery.Repository.PullRequest.Comments.Edges {
 		if !prComment.Node.IsMinimized && prComment.Node.Author.Login == bi {
 			if strings.Contains(string(prComment.Node.Body), "<!-- telefonistka_tag -->") {

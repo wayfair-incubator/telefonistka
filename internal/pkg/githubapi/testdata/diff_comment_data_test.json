@@ -1,0 +1,80 @@
+
+{
+  "DiffOfChangedComponents": [
+    {
+      "ComponentPath": "clusters/playground/aws/eu-central-1/v1/special-delivery/ssllab-test/ssllab-test",
+      "ArgoCdAppName": "temp-ssllab-test-plg-aws-eu-central1-v1",
+      "ArgoCdAppURL": "https://argocd-lab.example.com/applications/temp-ssllab-test-plg-aws-eu-central1-v1",
+      "DiffElements": [
+        {
+          "ObjectGroup": "",
+          "ObjectName": "ssllabs-exporter",
+          "ObjectKind": "Service",
+          "ObjectNamespace": "",
+          "Diff": "  (*unstructured.Unstructured)(\n- \tnil,\n+ \t\u0026{\n+ \t\tObject: map[string]any{\n+ \t\t\t\"apiVersion\": string(\"v1\"),\n+ \t\t\t\"kind\":       string(\"Service\"),\n+ \t\t\t\"metadata\":   map[string]any{\"labels\": map[string]any{...}, \"name\": string(\"ssllabs-exporter\")},\n+ \t\t\t\"spec\": map[string]any{\n+ \t\t\t\t\"ports\":    []any{...},\n+ \t\t\t\t\"selector\": map[string]any{...},\n+ \t\t\t\t\"type\":     string(\"ClusterIP\"),\n+ \t\t\t},\n+ \t\t},\n+ \t},\n  )\n"
+        },
+        {
+          "ObjectGroup": "apps",
+          "ObjectName": "ssllabs-exporter",
+          "ObjectKind": "Deployment",
+          "ObjectNamespace": "",
+          "Diff": "  (*unstructured.Unstructured)(\n- \tnil,\n+ \t\u0026{\n+ \t\tObject: map[string]any{\n+ \t\t\t\"apiVersion\": string(\"apps/v1\"),\n+ \t\t\t\"kind\":       string(\"Deployment\"),\n+ \t\t\t\"metadata\":   map[string]any{\"labels\": map[string]any{...}, \"name\": string(\"ssllabs-exporter\")},\n+ \t\t\t\"spec\": map[string]any{\n+ \t\t\t\t\"replicas\": int64(2),\n+ \t\t\t\t\"selector\": map[string]any{...},\n+ \t\t\t\t\"template\": map[string]any{...},\n+ \t\t\t},\n+ \t\t},\n+ \t},\n  )\n"
+        }
+      ],
+      "HasDiff": true,
+      "DiffError": null,
+      "AppWasTemporarilyCreated": false
+    },
+    {
+      "ComponentPath": "clusters/playground/aws/eu-central-1/v2/special-delivery/ssllab-test/ssllab-test",
+      "ArgoCdAppName": "temp-ssllab-test-plg-aws-eu-central1-v2",
+      "ArgoCdAppURL": "https://argocd-lab.example.com/applications/temp-ssllab-test-plg-aws-eu-central1-v1",
+      "DiffElements": [
+        {
+          "ObjectGroup": "",
+          "ObjectName": "ssllabs-exporter",
+          "ObjectKind": "Service",
+          "ObjectNamespace": "",
+          "Diff": "  (*unstructured.Unstructured)(\n- \tnil,\n+ \t\u0026{\n+ \t\tObject: map[string]any{\n+ \t\t\t\"apiVersion\": string(\"v1\"),\n+ \t\t\t\"kind\":       string(\"Service\"),\n+ \t\t\t\"metadata\":   map[string]any{\"labels\": map[string]any{...}, \"name\": string(\"ssllabs-exporter\")},\n+ \t\t\t\"spec\": map[string]any{\n+ \t\t\t\t\"ports\":    []any{...},\n+ \t\t\t\t\"selector\": map[string]any{...},\n+ \t\t\t\t\"type\":     string(\"ClusterIP\"),\n+ \t\t\t},\n+ \t\t},\n+ \t},\n  )\n"
+        },
+        {
+          "ObjectGroup": "apps",
+          "ObjectName": "ssllabs-exporter",
+          "ObjectKind": "Deployment",
+          "ObjectNamespace": "",
+          "Diff": "  (*unstructured.Unstructured)(\n- \tnil,\n+ \t\u0026{\n+ \t\tObject: map[string]any{\n+ \t\t\t\"apiVersion\": string(\"apps/v1\"),\n+ \t\t\t\"kind\":       string(\"Deployment\"),\n+ \t\t\t\"metadata\":   map[string]any{\"labels\": map[string]any{...}, \"name\": string(\"ssllabs-exporter\")},\n+ \t\t\t\"spec\": map[string]any{\n+ \t\t\t\t\"replicas\": int64(2),\n+ \t\t\t\t\"selector\": map[string]any{...},\n+ \t\t\t\t\"template\": map[string]any{...},\n+ \t\t\t},\n+ \t\t},\n+ \t},\n  )\n"
+        }
+      ],
+      "HasDiff": true,
+      "DiffError": null,
+      "AppWasTemporarilyCreated": false
+    },
+    {
+      "ComponentPath": "clusters/playground/aws/eu-central-1/v3/special-delivery/ssllab-test/ssllab-test",
+      "ArgoCdAppName": "temp-ssllab-test-plg-aws-eu-central1-v3",
+      "ArgoCdAppURL": "https://argocd-lab.example.com/applications/temp-ssllab-test-plg-aws-eu-central1-v1",
+      "DiffElements": [
+        {
+          "ObjectGroup": "",
+          "ObjectName": "ssllabs-exporter",
+          "ObjectKind": "Service",
+          "ObjectNamespace": "",
+          "Diff": "  (*unstructured.Unstructured)(\n- \tnil,\n+ \t\u0026{\n+ \t\tObject: map[string]any{\n+ \t\t\t\"apiVersion\": string(\"v1\"),\n+ \t\t\t\"kind\":       string(\"Service\"),\n+ \t\t\t\"metadata\":   map[string]any{\"labels\": map[string]any{...}, \"name\": string(\"ssllabs-exporter\")},\n+ \t\t\t\"spec\": map[string]any{\n+ \t\t\t\t\"ports\":    []any{...},\n+ \t\t\t\t\"selector\": map[string]any{...},\n+ \t\t\t\t\"type\":     string(\"ClusterIP\"),\n+ \t\t\t},\n+ \t\t},\n+ \t},\n  )\n"
+        },
+        {
+          "ObjectGroup": "apps",
+          "ObjectName": "ssllabs-exporter",
+          "ObjectKind": "Deployment",
+          "ObjectNamespace": "",
+          "Diff": "  (*unstructured.Unstructured)(\n- \tnil,\n+ \t\u0026{\n+ \t\tObject: map[string]any{\n+ \t\t\t\"apiVersion\": string(\"apps/v1\"),\n+ \t\t\t\"kind\":       string(\"Deployment\"),\n+ \t\t\t\"metadata\":   map[string]any{\"labels\": map[string]any{...}, \"name\": string(\"ssllabs-exporter\")},\n+ \t\t\t\"spec\": map[string]any{\n+ \t\t\t\t\"replicas\": int64(2),\n+ \t\t\t\t\"selector\": map[string]any{...},\n+ \t\t\t\t\"template\": map[string]any{...},\n+ \t\t\t},\n+ \t\t},\n+ \t},\n  )\n"
+        }
+      ],
+      "HasDiff": true,
+      "DiffError": null,
+      "AppWasTemporarilyCreated": false
+    }
+  ],
+  "DisplaySyncBranchCheckBox": false,
+  "BranchName": "promotions/284-simulate-error-5c159151017f",
+  "Header": ""
+}

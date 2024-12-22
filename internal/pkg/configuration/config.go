@@ -12,6 +12,7 @@ type WebhookEndpointRegex struct {
 type ComponentConfig struct {
 	PromotionTargetAllowList []string `yaml:"promotionTargetAllowList"`
 	PromotionTargetBlockList []string `yaml:"promotionTargetBlockList"`
+	DisableArgoCDDiff        bool     `yaml:"disableArgoCDDiff"`
 }
 
 type Condition struct {
@@ -42,9 +43,15 @@ type Config struct {
 	ToggleCommitStatus           map[string]string      `yaml:"toggleCommitStatus"`
 	WebhookEndpointRegexs        []WebhookEndpointRegex `yaml:"webhookEndpointRegexs"`
 	WhProxtSkipTLSVerifyUpstream bool                   `yaml:"whProxtSkipTLSVerifyUpstream"`
-	CommentArgocdDiffonPR        bool                   `yaml:"commentArgocdDiffonPR"`
-	AutoMergeNoDiffPRs           bool                   `yaml:"autoMergeNoDiffPRs"`
-	UseSHALabelForArgoDicovery   bool                   `yaml:"useSHALabelForArgoDicovery"`
+	Argocd                       ArgocdConfig           `yaml:"argocd"`
+}
+
+type ArgocdConfig struct {
+	CommentDiffonPR               bool   `yaml:"commentDiffonPR"`
+	AutoMergeNoDiffPRs            bool   `yaml:"autoMergeNoDiffPRs"`
+	AllowSyncfromBranchPathRegex  string `yaml:"allowSyncfromBranchPathRegex"`
+	UseSHALabelForAppDiscovery    bool   `yaml:"useSHALabelForAppDiscovery"`
+	CreateTempAppObjectFroNewApps bool   `yaml:"createTempAppObjectFromNewApps"`
 }
 
 func ParseConfigFromYaml(y string) (*Config, error) {

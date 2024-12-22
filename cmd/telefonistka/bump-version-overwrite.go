@@ -73,7 +73,7 @@ func bumpVersionOverwrite(targetRepo string, targetFile string, file string, git
 	ghPrClientDetails.PrLogger = log.WithFields(log.Fields{}) // TODO what fields should be here?
 
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
-	initialFileContent, err, statusCode := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
+	initialFileContent, statusCode, err := githubapi.GetFileContent(ghPrClientDetails, defaultBranch, targetFile)
 	if statusCode == 404 {
 		ghPrClientDetails.PrLogger.Infof("File %s was not found\n", targetFile)
 	} else if err != nil {

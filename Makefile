@@ -25,5 +25,5 @@ clean:
 
 .PHONY: test
 test: $(VENDOR_DIR)
-	go test -v -timeout 30s ./...
+	TEMPLATES_PATH=../../../templates/ go test -v -timeout 30s ./...
 

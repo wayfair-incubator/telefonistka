@@ -132,7 +132,6 @@ func createGithubGraphQlClient(githubOauthToken string, githubGraphqlAltURL stri
 }
 
 func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string, ghAppPKeyPathEnvVarName string) GhClientPair {
-	// var ghClientPair *GhClientPair
 	var githubRestAltURL string
 	var githubGraphqlAltURL string
 	githubAppPrivateKeyPath := getCrucialEnv(ghAppPKeyPathEnvVarName)
@@ -151,8 +150,6 @@ func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string,
 		log.Errorf("Couldn't find installation for app ID %v and repo owner %s", githubAppId, owner)
 	}
 
-	// ghClientPair.v3Client := createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx)
-	// ghClientPair.v4Client := createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx)
 	return GhClientPair{
 		v3Client: createGithubAppRestClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubRestAltURL, ctx),
 		v4Client: createGithubAppGraphQlClient(githubAppPrivateKeyPath, githubAppId, githubAppInstallationId, githubGraphqlAltURL, githubRestAltURL, ctx),
@@ -160,7 +157,6 @@ func createGhAppClientPair(ctx context.Context, githubAppId int64, owner string,
 }
 
 func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientPair {
-	// var ghClientPair *GhClientPair
 	var githubRestAltURL string
 	var githubGraphqlAltURL string
 	githubHost := getEnv("GITHUB_HOST", "")
@@ -173,8 +169,6 @@ func createGhTokenClientPair(ctx context.Context, ghOauthToken string) GhClientP
 		log.Debugf("Using public Github API endpoint")
 	}
 
-	// ghClientPair.v3Client := createGithubRestClient(ghOauthToken, githubRestAltURL, ctx)
-	// ghClientPair.v4Client := createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL)
 	return GhClientPair{
 		v3Client: createGithubRestClient(ghOauthToken, githubRestAltURL, ctx),
 		v4Client: createGithubGraphQlClient(ghOauthToken, githubGraphqlAltURL),

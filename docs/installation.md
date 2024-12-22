@@ -91,6 +91,12 @@ Environment variables for the webhook process:
 
 `TEMPLATES_PATH` Telefonistka uses Go templates to format GitHub PR comments, the variable override the default templates path("templates/"), useful for environments where the container workdir is overridden(like GitHub Actions) or when custom templates are desired.
 
+`CUSTOM_COMMIT_STATUS_URL_TEMPLATE_PATH` allows you to set a custom [commit status](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#about-commit-statuses) target URL using Go templates. The commit time will be passed as a dynamic parameter to the template. Here is an example:
+
+```console
+https://custom-url.com?time={{.CommitTime}}
+```
+
 `ARGOCD_SERVER_ADDR` Hostname and port of the ArgoCD API endpoint, like `argocd-server.argocd.svc.cluster.local:443`, default is `localhost:8080"`
 
 `ARGOCD_TOKEN` ArgoCD authentication token.
@@ -123,9 +129,11 @@ Configuration keys:
 |`autoApprovePromotionPrs`| if true the bot will auto-approve all promotion PRs, with the assumption the original PR was peer reviewed and is promoted verbatim. Required additional GH token via APPROVER_GITHUB_OAUTH_TOKEN env variable|
 |`toggleCommitStatus`| Map of strings, allow (non-repo-admin) users to change the [Github commit status](https://docs.github.com/en/rest/commits/statuses) state(from failure to success and back). This can be used to continue promotion of a change that doesn't pass repo checks. the keys are strings commented in the PRs, values are [Github commit status context](https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#create-a-commit-status) to be overridden|
 |`whProxtSkipTLSVerifyUpstream`| This disables upstream TLS server certificate validation for the webhook proxy functionality. Default is `false`. |
-|`commentArgocdDiffonPR`| Uses ArgoCD API to calculate expected changes to k8s state and comment the resulting "diff" as comment in the PR. Requires ARGOCD_* environment variables, see below. |
-|`autoMergeNoDiffPRs`| if true, Telefonistka will **merge** promotion PRs that are not expected to change the target clusters. Requires `commentArgocdDiffonPR` and possibly `autoApprovePromotionPrs`(depending on repo branch protection rules)|
-|`useSHALabelForArgoDicovery`| The default method for discovering relevant ArgoCD applications (for a PR) relies on fetching all applications in the repo and checking the `argocd.argoproj.io/manifest-generate-paths` **annotation**, this might cause a performance issue on a repo with a large number of ArgoCD applications. The alternative is to add SHA1 of the application path as a  **label** and rely on ArgoCD server-side filtering, label name is `telefonistka.io/component-path-sha1`.|
+|`argocd.commentDiffonPR`| Uses ArgoCD API to calculate expected changes to k8s state and comment the resulting "diff" as comment in the PR. Requires ARGOCD_* environment variables, see below. |
+|`argocd.autoMergeNoDiffPRs`| if true, Telefonistka will **merge** promotion PRs that are not expected to change the target clusters. Requires `commentArgocdDiffonPR` and possibly `autoApprovePromotionPrs`(depending on repo branch protection rules)|
+|`argocd.useSHALabelForAppDiscovery`| The default method for discovering relevant ArgoCD applications (for a PR) relies on fetching all applications in the repo and checking the `argocd.argoproj.io/manifest-generate-paths` **annotation**, this might cause a performance issue on a repo with a large number of ArgoCD applications. The alternative is to add SHA1 of the application path as a  **label** and rely on ArgoCD server-side filtering, label name is `telefonistka.io/component-path-sha1`.|
+|`argocd.allowSyncfromBranchPathRegex`| This controls which component(=ArgoCD apps) are allowed to be "applied" from a PR branch, by setting the ArgoCD application `Target Revision` to PR branch.|
+|`argocd.createTempAppObjectFromNewApps`| For application created in PR Telefonistka needs to create a temporary ArgoCD Application Object to render the manifests, this key enables this behavior. The application spec is pulled from a Matching ApplicationSet object and the temporary object is deleted after the manifests are rendered. This feature currently support ApplicationSets with Git **Directory** generator|
 <!-- markdownlint-enable MD033 -->
 
 Example:
@@ -171,8 +179,12 @@ promotionPaths:
         - "clusters/prod/us-east4/c2"
 dryRunMode: true
 autoApprovePromotionPrs: true
-commentArgocdDiffonPR: true
-autoMergeNoDiffPRs: true
+argocd:
+  commentDiffonPR: true
+  autoMergeNoDiffPRs: true
+  allowSyncfromBranchPathRegex: '^workspace/.*$'
+  useSHALabelForAppDiscovery: true
+  createTempAppObjectFromNewApps: true
 toggleCommitStatus:
   override-terrafrom-pipeline: "github-action-terraform"
 ```
@@ -182,12 +194,22 @@ toggleCommitStatus:
 This optional in-component configuration file allows overriding the general promotion configuration for a specific component.
 File location is `COMPONENT_PATH/telefonistka.yaml` (no leading dot in file name), so it could be:
 `workspace/reloader/telefonistka.yaml` or `env/prod/us-central1/c2/wf-kube-proxy-metrics-proxy/telefonistka.yaml`
-it includes only two optional configuration keys, `promotionTargetBlockList` and `promotionTargetAllowList`.
-Both are matched against the target component path using Golang regex engine.
+it includes these  optional configuration keys: `promotionTargetBlockList`,  `promotionTargetAllowList` and `disableArgoCDDiff`
+`promotionTargetBlockList` and `promotionTargetAllowList`  are matched against the target component path using Golang regex engine.
 
 If a target path matches an entry in `promotionTargetBlockList` it will not be promoted(regardless of `promotionTargetAllowList`).
 
 If  `promotionTargetAllowList` exist(non empty), only target paths that matches it will be promoted to(but the previous statement about `promotionTargetBlockList` still applies).
+
+`disableArgoCDDiff` can be used to ensure no sensitive information **stored outside `kind:Secret` objects** is persisted to PR comments, this can happen if secrets are injected as part of the ArgoCD manifest templating stage and are stored outside `kind:Secret` objects and/or referenced by hashing function in annotations to trigger restarts. And while both use cases can (and should!) be avoided we choose to provide a workaround to prevent this issues from blocking Telefonistka implementation.
+
+ArgoCD API redact all `kind:Secret` object content automatically so under "normal" usage this is not an issue.
+
+Telefonistka will still display changed objects, just without the content:
+
+![image](https://github.com/user-attachments/assets/f8ebc390-6051-4640-982e-6b768975dcfc)
+
+Example:
 
 ```yaml
 promotionTargetBlockList:
@@ -196,6 +218,7 @@ promotionTargetBlockList:
 promotionTargetAllowList:
   - env/prod/.*
   - env/(dev|lab)/.*
+disableArgoCDDiff: true
 ```
 
 ## GitHub API Limit

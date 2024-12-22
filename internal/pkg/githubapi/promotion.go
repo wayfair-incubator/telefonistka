@@ -51,6 +51,10 @@ func contains(s []string, str string) bool {
 }
 
 func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
+	ghPrClientDetails.PrLogger.Debugln("Checking for Drift")
+	if ghPrClientDetails.Ctx.Err() != nil {
+		return ghPrClientDetails.Ctx.Err()
+	}
 	diffOutputMap := make(map[string]string)
 	defaultBranch, _ := ghPrClientDetails.GetDefaultBranch()
 	config, err := GetInRepoConfig(ghPrClientDetails, defaultBranch)
@@ -73,7 +77,7 @@ func DetectDrift(ghPrClientDetails GhPrClientDetails) error {
 		}
 	}
 	if len(diffOutputMap) != 0 {
-		err, templateOutput := executeTemplate(ghPrClientDetails.PrLogger, "driftMsg", "drift-pr-comment.gotmpl", diffOutputMap)
+		templateOutput, err := executeTemplate("driftMsg", defaultTemplatesFullPath("drift-pr-comment.gotmpl"), diffOutputMap)
 		if err != nil {
 			return err
 		}
@@ -99,7 +103,7 @@ func getComponentConfig(ghPrClientDetails GhPrClientDetails, componentPath strin
 		return nil, err
 	} else if resp.StatusCode == 404 {
 		ghPrClientDetails.PrLogger.Debugf("No in-component config in %s", componentPath)
-		return nil, nil
+		return &cfg.ComponentConfig{}, nil
 	}
 	componentConfigFileContentString, _ := componentConfigFileContent.GetContent()
 	err = yaml.Unmarshal([]byte(componentConfigFileContentString), componentConfig)
@@ -167,8 +171,14 @@ type relevantComponent struct {
 	AutoMerge     bool
 }
 
-// This function basically turns the map with struct keys into a list of strings
 func generateListOfChangedComponentPaths(ghPrClientDetails GhPrClientDetails, config *cfg.Config) (changedComponentPaths []string, err error) {
+	// If the PR has a list of promoted paths in the PR Telefonistika metadata(=is a promotion PR), we use that
+	if len(ghPrClientDetails.PrMetadata.PromotedPaths) > 0 {
+		changedComponentPaths = ghPrClientDetails.PrMetadata.PromotedPaths
+		return changedComponentPaths, nil
+	}
+
+	// If not we will use in-repo config to generate it, and turns the map with struct keys into a list of strings
 	relevantComponents, err := generateListOfRelevantComponents(ghPrClientDetails, config)
 	if err != nil {
 		return nil, err

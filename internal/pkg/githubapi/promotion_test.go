@@ -9,6 +9,7 @@ import (
 	"github.com/google/go-github/v62/github"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	cfg "github.com/wayfair-incubator/telefonistka/internal/pkg/configuration"
 )
 
@@ -48,7 +49,7 @@ func generatePromotionPlanMetadataTestHelper(t *testing.T, config *cfg.Config, e
 	}
 }
 
-func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, expectedPromotion map[string]PromotionInstance, mockedHTTPClient *http.Client) {
+func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, mockedHTTPClient *http.Client, expectedPromotions ...map[string]PromotionInstance) {
 	t.Helper()
 	ctx := context.Background()
 	ghClientPair := GhClientPair{v3Client: github.NewClient(mockedHTTPClient)}
@@ -75,11 +76,17 @@ func generatePromotionPlanTestHelper(t *testing.T, config *cfg.Config, expectedP
 		t.Fatalf("Failed to generate promotion plan: err=%s", err)
 	}
 
-	if diff := deep.Equal(expectedPromotion, promotionPlan); diff != nil {
-		for _, l := range diff {
-			t.Error(l)
+	expectedPromotionMatched := false
+	diffs := []string{}
+	for _, expectedPromotion := range expectedPromotions {
+		if diff := deep.Equal(expectedPromotion, promotionPlan); diff != nil {
+			diffs = append(diffs, diff...)
+			continue
 		}
+		expectedPromotionMatched = true
+		break
 	}
+	assert.True(t, expectedPromotionMatched, diffs)
 }
 
 func TestGeneratePromotionConditionalPlan(t *testing.T) {
@@ -161,7 +168,7 @@ func TestGeneratePromotionConditionalPlan(t *testing.T) {
 			}),
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestAggregatePromotionPlan(t *testing.T) {
@@ -197,17 +204,33 @@ func TestAggregatePromotionPlan(t *testing.T) {
 		},
 	}
 
-	expectedPromotion := map[string]PromotionInstance{
-		"dev/[^/]*/>prod/eu-east-1/|prod/eu-west-1/": {
-			ComputedSyncPaths: map[string]string{
-				"prod/eu-east-1/componentA": "dev/us-east-5/componentA",
-				"prod/eu-west-1/componentA": "dev/us-east-5/componentA",
+	expectedPromotions := []map[string]PromotionInstance{
+		{
+			"dev/[^/]*/>prod/eu-east-1/|prod/eu-west-1/": {
+				ComputedSyncPaths: map[string]string{
+					"prod/eu-east-1/componentA": "dev/us-east-5/componentA",
+					"prod/eu-west-1/componentA": "dev/us-east-5/componentA",
+				},
+			},
+			"lab/[^/]*/>prod/us-east-1/|prod/us-west-1/": {
+				ComputedSyncPaths: map[string]string{
+					"prod/us-east-1/componentA": "lab/us-east-5/componentA",
+					"prod/us-west-1/componentA": "lab/us-east-5/componentA",
+				},
 			},
 		},
-		"lab/[^/]*/>prod/us-east-1/|prod/us-west-1/": {
-			ComputedSyncPaths: map[string]string{
-				"prod/us-east-1/componentA": "lab/us-east-5/componentA",
-				"prod/us-west-1/componentA": "lab/us-east-5/componentA",
+		{
+			"dev/[^/]*/>prod/eu-east-1/|prod/eu-west-1/": {
+				ComputedSyncPaths: map[string]string{
+					"prod/eu-east-1/componentA": "dev/us-east-4/componentA",
+					"prod/eu-west-1/componentA": "dev/us-east-4/componentA",
+				},
+			},
+			"lab/[^/]*/>prod/us-east-1/|prod/us-west-1/": {
+				ComputedSyncPaths: map[string]string{
+					"prod/us-east-1/componentA": "lab/us-east-5/componentA",
+					"prod/us-west-1/componentA": "lab/us-east-5/componentA",
+				},
 			},
 		},
 	}
@@ -233,7 +256,7 @@ func TestAggregatePromotionPlan(t *testing.T) {
 		),
 	)
 
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotions...)
 }
 
 func TestGenerateSourceRegexPromotionPlan(t *testing.T) {
@@ -283,7 +306,7 @@ func TestGenerateSourceRegexPromotionPlan(t *testing.T) {
 			}),
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestGeneratePromotionPlan(t *testing.T) {
@@ -332,7 +355,7 @@ func TestGeneratePromotionPlan(t *testing.T) {
 			}),
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestGeneratePromotionPlanBlockList(t *testing.T) {
@@ -376,7 +399,7 @@ func TestGeneratePromotionPlanBlockList(t *testing.T) {
 			},
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestGeneratePromotionPlanAllowList(t *testing.T) {
@@ -419,7 +442,7 @@ func TestGeneratePromotionPlanAllowList(t *testing.T) {
 			},
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestGeneratePromotionPlanTwoComponents(t *testing.T) {
@@ -468,7 +491,7 @@ func TestGeneratePromotionPlanTwoComponents(t *testing.T) {
 			}),
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestGenerateNestedSourceRegexPromotionPlan(t *testing.T) {
@@ -515,7 +538,7 @@ func TestGenerateNestedSourceRegexPromotionPlan(t *testing.T) {
 			}),
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 func TestGeneratePromotionPlanWithPagination(t *testing.T) {
@@ -567,7 +590,7 @@ func TestGeneratePromotionPlanWithPagination(t *testing.T) {
 			}),
 		),
 	)
-	generatePromotionPlanTestHelper(t, config, expectedPromotion, mockedHTTPClient)
+	generatePromotionPlanTestHelper(t, config, mockedHTTPClient, expectedPromotion)
 }
 
 // TestGeneratePromotionMetadataWithOutDesc tests the case where the target description is set

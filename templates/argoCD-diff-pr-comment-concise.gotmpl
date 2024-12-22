@@ -1,0 +1,55 @@
+{{define "argoCdDiffConcise"}}
+Diff of ArgoCD applications(⚠️ concise view, full diff didn't fit GH comment):
+{{ range $appDiffResult := .DiffOfChangedComponents }}
+
+
+{{if $appDiffResult.DiffError }}
+> [!CAUTION]
+> **Error getting diff from ArgoCD** (`{{ $appDiffResult.ComponentPath }}`)
+
+``` 
+{{ $appDiffResult.DiffError }}
+
+```
+
+{{- else }}
+<img src="https://argo-cd.readthedocs.io/en/stable/assets/favicon.png" width="20"/> **[{{ $appDiffResult.ArgoCdAppName }}]({{ $appDiffResult.ArgoCdAppURL }})** @ `{{ $appDiffResult.ComponentPath }}`
+{{if $appDiffResult.HasDiff }}
+
+<details><summary>ArgoCD list of changed objects(Click to expand):</summary>
+
+{{ range $objectDiff := $appDiffResult.DiffElements }}
+{{-  if $objectDiff.Diff}}
+`{{ $objectDiff.ObjectNamespace }}/{{ $objectDiff.ObjectKind}}/{{ $objectDiff.ObjectName }}`
+{{- end}}
+{{- end }}
+
+</details>
+{{- else }}
+{{ if  $appDiffResult.AppSyncedFromPRBranch }}
+> [!NOTE]
+> The app already has this branch set as the source target revision, and autosync is enabled. Diff calculation was skipped.
+{{- else }}
+
+No diff 🤷
+{{- end}}
+{{if $appDiffResult.AppWasTemporarilyCreated }}
+> [!NOTE]
+> Telefonistka has temporarily created an ArgoCD app object to render manifest previews.
+Please be aware:
+> * The app will only appear in the ArgoCD UI for a few seconds.
+{{- end}}
+
+{{- end }}
+{{- end }}
+
+{{- end }}
+
+{{- if .DisplaySyncBranchCheckBox }}
+
+- [ ] <!-- telefonistka-argocd-branch-sync --> Set ArgoCD apps Target Revision to `{{ .BranchName }}`  
+
+{{ end}}
+
+
+{{- end }}
