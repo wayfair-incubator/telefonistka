@@ -7,8 +7,8 @@ toolchain go1.23.4
 require github.com/alexliesenfeld/health v0.8.0
 
 require (
-	github.com/argoproj/argo-cd/v2 v2.11.4
-	github.com/argoproj/gitops-engine v0.7.1-0.20240702153804-5995eca2fb63
+	github.com/argoproj/argo-cd/v2 v2.11.7
+	github.com/argoproj/gitops-engine v0.7.1-0.20240715141605-18ba62e1f1fb
 	github.com/bradleyfalzon/ghinstallation/v2 v2.10.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/go-test/deep v1.1.0
