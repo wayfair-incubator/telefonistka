@@ -46,12 +46,12 @@ jobs:
 
       # Workaround: https://github.com/docker/build-push-action/issues/461
       - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@5138f76647652447004da686b2411557eaf65f33
+        uses: docker/setup-buildx-action@6524bf65af31da8d45b59e8c27de4bd072b392f5
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into GH registry (ghcr.io)
-        uses: docker/login-action@70fccc794acd729b2b22dd6a326895f286447728
+        uses: docker/login-action@7ca345011ac4304463197fac0e56eab1bc7e6af0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -59,7 +59,7 @@ jobs:
 
       - name: Log into Docker Hub registry 
         if: env.DOCKERHUB_USERNAME != '' 
-        uses: docker/login-action@70fccc794acd729b2b22dd6a326895f286447728
+        uses: docker/login-action@7ca345011ac4304463197fac0e56eab1bc7e6af0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -70,7 +70,7 @@ jobs:
       # 2nd image name is for DockerHub image
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@f7b4ed12385588c3f9bc252f0a2b520d83b52d48
+        uses: docker/metadata-action@906ecf0fc0a80f9110f79d9e6c04b1080f4a2621
         with: 
           context: git
           images: |
@@ -85,7 +85,7 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
         id: build-and-push
-        uses: docker/build-push-action@2a53c6ccda456d31fb62eedc658aae06e238b7bd
+        uses: docker/build-push-action@7e094594beda23fc8f21fa31049f4b203e51096b
         with:
           context: .
           push: true
@@ -96,7 +96,7 @@ jobs:
 
       - name: Extract Docker metadata - alpine
         id: meta-alpine
-        uses: docker/metadata-action@f7b4ed12385588c3f9bc252f0a2b520d83b52d48
+        uses: docker/metadata-action@906ecf0fc0a80f9110f79d9e6c04b1080f4a2621
         with:
           context: git
           images: |
@@ -108,7 +108,7 @@ jobs:
           flavor: prefix=alpine-,onlatest=true
       - name: Build and push Docker image - alpine
         id: build-and-push-alpine
-        uses: docker/build-push-action@2a53c6ccda456d31fb62eedc658aae06e238b7bd
+        uses: docker/build-push-action@7e094594beda23fc8f21fa31049f4b203e51096b
         with:
           context: .
           target: alpine-release
