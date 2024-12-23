@@ -30,6 +30,7 @@ require (
 	golang.org/x/tools v0.28.0
 	google.golang.org/grpc v1.63.2
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.11
 	k8s.io/apimachinery v0.26.11
 )
@@ -187,7 +188,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/op/go-logging.v1 v1.0.0-20160211212156-b2cb9fa56473 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.10 // indirect
 	k8s.io/apiserver v0.26.11 // indirect
 	k8s.io/cli-runtime v0.26.11 // indirect
