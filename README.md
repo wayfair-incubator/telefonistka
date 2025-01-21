@@ -1,3 +1,8 @@
+> [!IMPORTANT]  
+> Development of Telefonistka will continue under the commercetools GitHub org at https://github.com/commercetools/telefonistka  
+> Most of Telefonistka maintainers work in commercetools and I am no longer in contact with Wayfair GH org administrator so I feel this will better serve our small community.  
+> Just to be clear - the project is currently active, averaging > 3 commits on most work weeks (not including dependency updates!), this move is just about ensuring the continuity of the project.
+
 <!-- markdownlint-disable MD033 -->
 <p align="center">  <img src="https://user-images.githubusercontent.com/1616153/217223509-9aa60a5c-a263-41a7-814d-a1bf2957acf6.png " width="150"> </p>
 
