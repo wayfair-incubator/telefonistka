@@ -15,7 +15,7 @@ require (
 	github.com/go-test/deep v1.1.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v62 v62.0.0
-	github.com/google/go-github/v67 v67.0.0
+	github.com/google/go-github/v68 v68.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/migueleliasweb/go-github-mock v1.1.0
