@@ -2,36 +2,36 @@ module github.com/wayfair-incubator/telefonistka
 
 go 1.23
 
-toolchain go1.23.4
+toolchain go1.23.5
 
 require github.com/alexliesenfeld/health v0.8.0
 
 require (
-	github.com/argoproj/argo-cd/v2 v2.11.7
-	github.com/argoproj/gitops-engine v0.7.1-0.20240715141605-18ba62e1f1fb
-	github.com/bradleyfalzon/ghinstallation/v2 v2.10.0
-	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/cenkalti/backoff/v5 v5.0.0
-	github.com/go-test/deep v1.1.0
+	github.com/argoproj/argo-cd/v2 v2.13.3
+	github.com/argoproj/gitops-engine v0.7.3
+	github.com/bradleyfalzon/ghinstallation/v2 v2.13.0
+	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/cenkalti/backoff/v5 v5.0.1
+	github.com/go-test/deep v1.1.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-github/v62 v62.0.0
 	github.com/google/go-github/v67 v67.0.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/migueleliasweb/go-github-mock v1.1.0
-	github.com/mikefarah/yq/v4 v4.43.1
-	github.com/prometheus/client_golang v1.19.0
+	github.com/mikefarah/yq/v4 v4.45.1
+	github.com/prometheus/client_golang v1.20.5
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	github.com/sirupsen/logrus v1.9.3
-	github.com/spf13/cobra v1.8.0
-	github.com/stretchr/testify v1.9.0
+	github.com/spf13/cobra v1.8.1
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
-	golang.org/x/oauth2 v0.19.0
-	golang.org/x/tools v0.28.0
-	google.golang.org/grpc v1.63.2
+	golang.org/x/oauth2 v0.25.0
+	golang.org/x/tools v0.29.0
+	google.golang.org/grpc v1.69.4
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.26.11
-	k8s.io/apimachinery v0.26.11
+	k8s.io/api v0.32.1
+	k8s.io/apimachinery v0.32.1
 )
 
 require (
@@ -210,6 +210,6 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.12.1
+replace sigs.k8s.io/kustomize/api => sigs.k8s.io/kustomize/api v0.19.0
 
-replace sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.13.9
+replace sigs.k8s.io/kustomize/kyaml => sigs.k8s.io/kustomize/kyaml v0.19.0
